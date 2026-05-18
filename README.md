@@ -1,6 +1,6 @@
 # GoodieAI GEO Monitoring System
 
-AI GEO Monitoring System 是一个面向 Generative Engine Optimization（GEO）的监测系统，用于观察品牌在 AI 搜索、AI 问答和大模型回答中的曝光、提及与推荐表现。
+GoodieAI GEO Monitoring System 是一个面向 Generative Engine Optimization（GEO）的监测系统，用于观察品牌在 AI 搜索、AI 问答和LLM大模型回答中的曝光、提及与推荐表现。
 
 ## 系统演示
 <img width="3024" height="1656" alt="image" src="https://github.com/user-attachments/assets/b23d4ce5-cd35-425c-962c-64bbb90b8e5b" />
