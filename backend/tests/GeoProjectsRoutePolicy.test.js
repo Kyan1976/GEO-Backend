@@ -145,6 +145,13 @@ test('failed project and prompt runs include run result data for client feedback
   assert.match(promptRunBlock, /success:\s*false,\s*message:\s*result\.message,\s*data:\s*result\.data/);
 });
 
+test('project batch runs use the queued project runner', () => {
+  const block = routeBlock('post', '/:projectId/run');
+
+  assert.match(block, /ProjectRunService\.enqueueProjectRun/);
+  assert.match(block, /res\.status\(result\.status\s*\|\|\s*200\)\.json/);
+});
+
 test('source analytics route loads prompt text and tags for category normalization', () => {
   const block = routeBlock('get', '/:projectId/sources');
 

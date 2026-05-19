@@ -740,7 +740,7 @@ router.post('/:projectId/run', loadProject, async (req, res) => {
     if (promptSelection.explicit && prompts.length !== promptSelection.ids.length) {
       return res.status(400).json({ success: false, message: '选择的 Prompt 不存在或已停用' });
     }
-    const result = await ProjectRunService.runProject({
+    const result = await ProjectRunService.enqueueProjectRun({
       project: req.brandProject,
       prompts: prompts.map((item) => item.toJSON()),
       platforms: cleanPlatforms(req.brandProject.platforms),
@@ -750,7 +750,7 @@ router.post('/:projectId/run', loadProject, async (req, res) => {
     if (!result.ok) {
       return res.status(result.status || 400).json({ success: false, message: result.message, data: result.data });
     }
-    return res.json({ success: true, message: result.message, data: result.data });
+    return res.status(result.status || 200).json({ success: true, message: result.message, data: result.data });
   } catch (error) {
     return res.status(500).json({ success: false, message: '运行项目分析失败' });
   }

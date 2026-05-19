@@ -283,6 +283,109 @@ class ProjectRunService {
     return results;
   }
 
+  async consumeRunQuota(userId, amount) {
+    return consumeQuotaDirect(userId, 'detection', amount);
+  }
+
+  async prepareProjectRun({ project, prompts, platforms, user, promptSelectionExplicit = false }) {
+    const projectData = project.toJSON ? project.toJSON() : project;
+    const runUser = this.resolveRunUser(projectData, user);
+    if (!this.isRunnableProject(projectData)) {
+      return { ok: false, status: 400, message: '归档项目不能运行分析' };
+    }
+    const projectPlatforms = Array.isArray(platforms) && platforms.length
+      ? platforms
+      : (Array.isArray(projectData.platforms) && projectData.platforms.length ? projectData.platforms : MAINLAND_PLATFORMS);
+    if (promptSelectionExplicit && Array.isArray(prompts) && prompts.length && !this.hasEveryPromptProjectPlatformOverlap(prompts, projectPlatforms)) {
+      return { ok: false, status: 400, message: PLATFORM_MISMATCH_MESSAGE };
+    }
+    const targets = this.buildPromptTargets(prompts, AIPlatformService.getAvailablePlatforms(), projectPlatforms);
+    if (!targets.length) {
+      if (promptSelectionExplicit && !(Array.isArray(prompts) && prompts.length)) {
+        return { ok: false, status: 400, message: '选择的 Prompt 不存在或已停用' };
+      }
+      if (Array.isArray(prompts) && prompts.length && !this.hasPromptProjectPlatformOverlap(prompts, projectPlatforms)) {
+        return { ok: false, status: 400, message: PLATFORM_MISMATCH_MESSAGE };
+      }
+      return { ok: false, status: 400, message: '没有可运行的启用 Prompt，或监测平台暂不可用' };
+    }
+
+    const quota = await this.consumeRunQuota(runUser.id, targets.length);
+    if (!quota.ok) {
+      const reasonMap = {
+        not_allowed: '当前会员等级不允许使用该功能',
+        exceeded: '今日可用检测次数不足',
+        error: '配额检查失败'
+      };
+      return { ok: false, status: 403, message: reasonMap[quota.reason] || '配额不足' };
+    }
+
+    const competitors = await BrandCompetitor.findAll({
+      where: { project_id: projectData.id },
+      order: [['id', 'ASC']]
+    });
+    const keywords = this.buildBrandKeywordList(projectData);
+    const entries = await this.createRunEntries({ targets, runUser, projectData, keywords });
+
+    return {
+      ok: true,
+      projectData,
+      runUser,
+      targets,
+      competitors,
+      keywords,
+      entries
+    };
+  }
+
+  schedulePreparedRun(context) {
+    const task = async () => {
+      const results = await this.runPreparedTargets(context);
+      await this.evaluateAlertsAfterRun(context.projectData, context.runUser);
+      const summary = this.summarizeRunResults(results, context.targets.length);
+      console.log('项目队列分析完成:', {
+        project_id: context.projectData.id,
+        total: summary.total,
+        completed: summary.completed,
+        failed: summary.failed
+      });
+    };
+
+    setImmediate(() => {
+      task().catch((error) => {
+        console.error('项目队列分析异常:', this.formatError(error));
+      });
+    });
+  }
+
+  async enqueueProjectRun(options) {
+    const prepared = await this.prepareProjectRun(options);
+    if (!prepared.ok) return prepared;
+
+    this.schedulePreparedRun(prepared);
+    const recordIds = prepared.entries.map((entry) => entry.record.id);
+    return {
+      ok: true,
+      status: 202,
+      message: '项目分析已加入队列',
+      data: {
+        status: 'queued',
+        total: prepared.targets.length,
+        queued: prepared.entries.length,
+        pending: prepared.entries.length,
+        completed: 0,
+        failed: 0,
+        record_ids: recordIds,
+        results: prepared.entries.map((entry) => ({
+          record_id: entry.record.id,
+          prompt_id: entry.target.prompt.id,
+          platform: entry.target.platform,
+          status: 'pending'
+        }))
+      }
+    };
+  }
+
   async runTarget({ target, record: preparedRecord = null, runUser, projectData, competitors, keywords }) {
     const prompt = target.prompt;
     let record = preparedRecord;
@@ -390,48 +493,13 @@ class ProjectRunService {
   }
 
   async runProject({ project, prompts, platforms, user, promptSelectionExplicit = false }) {
-    const projectData = project.toJSON ? project.toJSON() : project;
-    const runUser = this.resolveRunUser(projectData, user);
-    if (!this.isRunnableProject(projectData)) {
-      return { ok: false, status: 400, message: '归档项目不能运行分析' };
-    }
-    const projectPlatforms = Array.isArray(platforms) && platforms.length
-      ? platforms
-      : (Array.isArray(projectData.platforms) && projectData.platforms.length ? projectData.platforms : MAINLAND_PLATFORMS);
-    if (promptSelectionExplicit && Array.isArray(prompts) && prompts.length && !this.hasEveryPromptProjectPlatformOverlap(prompts, projectPlatforms)) {
-      return { ok: false, status: 400, message: PLATFORM_MISMATCH_MESSAGE };
-    }
-    const targets = this.buildPromptTargets(prompts, AIPlatformService.getAvailablePlatforms(), projectPlatforms);
-    if (!targets.length) {
-      if (promptSelectionExplicit && !(Array.isArray(prompts) && prompts.length)) {
-        return { ok: false, status: 400, message: '选择的 Prompt 不存在或已停用' };
-      }
-      if (Array.isArray(prompts) && prompts.length && !this.hasPromptProjectPlatformOverlap(prompts, projectPlatforms)) {
-        return { ok: false, status: 400, message: PLATFORM_MISMATCH_MESSAGE };
-      }
-      return { ok: false, status: 400, message: '没有可运行的启用 Prompt，或监测平台暂不可用' };
-    }
+    const prepared = await this.prepareProjectRun({ project, prompts, platforms, user, promptSelectionExplicit });
+    if (!prepared.ok) return prepared;
 
-    const quota = await consumeQuotaDirect(runUser.id, 'detection', targets.length);
-    if (!quota.ok) {
-      const reasonMap = {
-        not_allowed: '当前会员等级不允许使用该功能',
-        exceeded: '今日可用检测次数不足',
-        error: '配额检查失败'
-      };
-      return { ok: false, status: 403, message: reasonMap[quota.reason] || '配额不足' };
-    }
+    const results = await this.runPreparedTargets(prepared);
 
-    const competitors = await BrandCompetitor.findAll({
-      where: { project_id: projectData.id },
-      order: [['id', 'ASC']]
-    });
-    const keywords = this.buildBrandKeywordList(projectData);
-    const entries = await this.createRunEntries({ targets, runUser, projectData, keywords });
-    const results = await this.runPreparedTargets({ entries, runUser, projectData, competitors, keywords });
-
-    await this.evaluateAlertsAfterRun(projectData, runUser);
-    const summary = this.summarizeRunResults(results, targets.length);
+    await this.evaluateAlertsAfterRun(prepared.projectData, prepared.runUser);
+    const summary = this.summarizeRunResults(results, prepared.targets.length);
     const ok = summary.completed > 0;
 
     return {

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { QuestionRecord, ResultDetail } = require('../models');
+const { QuestionRecord, ResultDetail, BrandCompetitor } = require('../models');
 const AIPlatformService = require('../services/AIPlatformService');
 const ProjectRunService = require('../services/ProjectRunService');
 const SentimentAnalysisService = require('../services/SentimentAnalysisService');
@@ -470,6 +470,52 @@ test('runs a prepared project run target without creating a duplicate question r
   } finally {
     QuestionRecord.create = originalCreateRecord;
     AIPlatformService.queryPlatform = originalQueryPlatform;
+  }
+});
+
+test('queues a project run without waiting for prepared targets to finish', async () => {
+  const originalGetAvailable = AIPlatformService.getAvailablePlatforms;
+  const originalConsumeQuota = ProjectRunService.consumeRunQuota;
+  const originalFindCompetitors = BrandCompetitor.findAll;
+  const originalCreateEntries = ProjectRunService.createRunEntries;
+  const originalSchedule = ProjectRunService.schedulePreparedRun;
+  let scheduledContext = null;
+
+  AIPlatformService.getAvailablePlatforms = () => ['doubao'];
+  ProjectRunService.consumeRunQuota = async () => ({ ok: true, used: 2, limit: 100 });
+  BrandCompetitor.findAll = async () => [];
+  ProjectRunService.createRunEntries = async ({ targets }) => targets.map((target, index) => ({
+    target,
+    record: { id: index + 10 }
+  }));
+  ProjectRunService.schedulePreparedRun = (context) => {
+    scheduledContext = context;
+  };
+
+  try {
+    const result = await ProjectRunService.enqueueProjectRun({
+      project: { id: 2, user_id: 9, status: 'active', name: 'Goodie AI', platforms: ['doubao'] },
+      prompts: [
+        { id: 3, question: '开源 GEO 工具有哪些', enabled: true, platforms: ['doubao'] },
+        { id: 4, question: 'GEO 监测怎么做', enabled: true, platforms: ['doubao'] }
+      ],
+      platforms: ['doubao'],
+      user: { id: 9, role: 'user' }
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 202);
+    assert.equal(result.data.status, 'queued');
+    assert.equal(result.data.total, 2);
+    assert.equal(result.data.pending, 2);
+    assert.deepEqual(result.data.record_ids, [10, 11]);
+    assert.equal(scheduledContext.entries.length, 2);
+  } finally {
+    AIPlatformService.getAvailablePlatforms = originalGetAvailable;
+    ProjectRunService.consumeRunQuota = originalConsumeQuota;
+    BrandCompetitor.findAll = originalFindCompetitors;
+    ProjectRunService.createRunEntries = originalCreateEntries;
+    ProjectRunService.schedulePreparedRun = originalSchedule;
   }
 });
 

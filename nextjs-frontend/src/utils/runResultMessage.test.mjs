@@ -18,3 +18,10 @@ test('formats run result notices by severity', () => {
     text: '分析全部失败：成功 0 条，失败 2 条'
   });
 });
+
+test('formats queued project run notices without claiming completion', () => {
+  assert.deepEqual(getRunResultNotice({ status: 'queued', pending: 10, completed: 0, failed: 0 }), {
+    type: 'success',
+    text: '分析已加入队列：待处理 10 条'
+  });
+});
