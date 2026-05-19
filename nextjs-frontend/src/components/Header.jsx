@@ -3,17 +3,18 @@
 import React from 'react';
 import { Space, Button, Dropdown } from 'antd';
 import { ThunderboltOutlined, DownOutlined } from '@ant-design/icons';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 const goodieLogo = '/assets/goodie-logo.svg';
 
-export default function Header({ token, onLogout, isGeoRoute = false }) {
+export default function Header({ onLogout, isGeoRoute = false }) {
   const router = useRouter();
 
   return (
     <header className="app-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div className="logo" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <img src={goodieLogo} alt="Goodie AI logo" className="site-logo" />
+        <Image src={goodieLogo} alt="Goodie AI logo" className="site-logo" width={120} height={32} priority />
       </div>
 
       {isGeoRoute ? (

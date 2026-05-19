@@ -1,12 +1,18 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Tag, message } from 'antd';
 import axios from 'axios';
+import { resolveKeywordStats } from '@/utils/keywordStats.cjs';
+
+type HistoryFilters = {
+  userId?: string;
+  platform?: string;
+  status?: string;
+  q?: string;
+};
 
 export default function AdminHistoryPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState([]);
   const [total, setTotal] = useState(0);
@@ -17,45 +23,29 @@ export default function AdminHistoryPage() {
   const [status, setStatus] = useState('');
   const [q, setQ] = useState('');
 
-  const fetchHistory = async (p = page, l = limit) => {
+  const fetchHistory = useCallback(async (p = 1, l = 10, filters: HistoryFilters = {}) => {
     try {
       setLoading(true);
       const params: Record<string, any> = { page: p, limit: l };
-      if (userId) params.user_id = userId;
-      if (platform) params.platform = platform;
-      if (status) params.status = status;
-      if (q) params.q = q;
+      if (filters.userId) params.user_id = filters.userId;
+      if (filters.platform) params.platform = filters.platform;
+      if (filters.status) params.status = filters.status;
+      if (filters.q) params.q = filters.q;
       const res = await axios.get('/api/detection/history', { params });
       if (res.data?.success) {
         const data = res.data?.data || {};
         const rows = Array.isArray(data.records) ? data.records : [];
-        const countKeywordOccurrences = (text: any, keywords: any, englishWordBoundary = true) => {
-          const s = typeof text === 'string' ? text : String(text || '');
-          const list = Array.isArray(keywords) ? keywords.filter(Boolean) : [];
-          const escape = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          return list.map((kw) => {
-            const e = escape(String(kw));
-            const useBoundary = englishWordBoundary && /^[A-Za-z]+$/.test(String(kw));
-            const re = new RegExp(useBoundary ? `\\b${e}\\b` : e, 'gi');
-            let c = 0;
-            for (const _ of s.matchAll(re)) c += 1;
-            return { keyword: String(kw), count: c };
-          });
-        };
         const mapped = rows.map((r: any) => {
           const brandKeywords = typeof r.brand_keywords === 'string'
             ? r.brand_keywords.split(/[,，]/).map((s: string) => s.trim()).filter(Boolean)
             : Array.isArray(r.brand_keywords) ? r.brand_keywords : [];
           const originalText = r.resultDetail?.ai_response_original || '';
-          const keywordStatsRaw = Array.isArray(r.result_summary?.keyword_counts) && r.result_summary.keyword_counts.length > 0
-            ? r.result_summary.keyword_counts
-            : countKeywordOccurrences(originalText, brandKeywords, true);
-          const keywordStats = Array.isArray(brandKeywords)
-            ? brandKeywords.map((kw) => {
-                const hit = (Array.isArray(keywordStatsRaw) ? keywordStatsRaw : []).find((s) => s.keyword === kw);
-                return { keyword: String(kw), count: Number(hit?.count || 0) };
-              })
-            : (Array.isArray(keywordStatsRaw) ? keywordStatsRaw : []);
+          const keywordStats = resolveKeywordStats({
+            text: originalText,
+            keywords: brandKeywords,
+            storedStats: r.result_summary?.keyword_counts,
+            englishWordBoundary: true
+          });
           return {
             ...r,
             brandKeywords,
@@ -74,13 +64,13 @@ export default function AdminHistoryPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchHistory(1, limit);
   }, []);
 
-  const PLATFORM_LABELS = useMemo(() => ({ doubao: '豆包', deepseek: 'DeepSeek', kimi: 'Kimi', qianwen: '千问' }), []);
+  useEffect(() => {
+    fetchHistory(1, limit, {});
+  }, [fetchHistory, limit]);
+
+  const PLATFORM_LABELS = useMemo(() => ({ doubao: '豆包', deepseek: 'DeepSeek' }), []);
 
   const columns = useMemo(() => [
     { title: '检测时间', dataIndex: 'created_at', key: 'created_at', width: 160, render: (t: any) => {
@@ -122,7 +112,7 @@ export default function AdminHistoryPage() {
             allowClear
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onPressEnter={() => { setPage(1); fetchHistory(1, limit); }}
+            onPressEnter={() => { setPage(1); fetchHistory(1, limit, { userId, platform, status, q }); }}
             style={{ width: 220, maxWidth: '100%' }}
           />
           <Select
@@ -131,7 +121,7 @@ export default function AdminHistoryPage() {
             allowClear
             value={platform}
             onChange={setPlatform}
-            options={['doubao','deepseek','kimi','qianwen'].map(v => ({ value: v, label: PLATFORM_LABELS[v as keyof typeof PLATFORM_LABELS] || v }))}
+            options={['doubao','deepseek'].map(v => ({ value: v, label: PLATFORM_LABELS[v as keyof typeof PLATFORM_LABELS] || v }))}
             style={{ width: 140, maxWidth: '100%' }}
           />
           <Select
@@ -149,11 +139,11 @@ export default function AdminHistoryPage() {
             allowClear
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
-            onPressEnter={() => { setPage(1); fetchHistory(1, limit); }}
+            onPressEnter={() => { setPage(1); fetchHistory(1, limit, { userId, platform, status, q }); }}
             style={{ width: 140, maxWidth: '100%' }}
           />
-          <Button size="small" type="primary" onClick={() => { setPage(1); fetchHistory(1, limit); }}>搜索</Button>
-          <Button size="small" onClick={() => { setUserId(''); setPlatform(''); setStatus(''); setQ(''); setPage(1); fetchHistory(1, limit); }}>重置</Button>
+          <Button size="small" type="primary" onClick={() => { setPage(1); fetchHistory(1, limit, { userId, platform, status, q }); }}>搜索</Button>
+          <Button size="small" onClick={() => { setUserId(''); setPlatform(''); setStatus(''); setQ(''); setPage(1); fetchHistory(1, limit, {}); }}>重置</Button>
         </Space>
       )}
     >
@@ -166,7 +156,7 @@ export default function AdminHistoryPage() {
           current: page,
           pageSize: limit,
           total,
-          onChange: (p, l) => { setPage(p); setLimit(l); fetchHistory(p, l); },
+          onChange: (p, l) => { setPage(p); setLimit(l); fetchHistory(p, l, { userId, platform, status, q }); },
         }}
       />
     </Card>

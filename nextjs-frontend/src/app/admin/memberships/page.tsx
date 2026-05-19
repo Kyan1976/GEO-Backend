@@ -1,13 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Button, InputNumber, Modal, Form, message, Tag, Alert, Select } from 'antd';
 import Collapsible from '@/components/Collapsible';
 import axios from 'axios';
 
 export default function AdminMembershipsPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
   const [editing, setEditing] = useState<any>(null);
@@ -28,7 +26,7 @@ export default function AdminMembershipsPage() {
 
   useEffect(() => { fetchPlans(); }, []);
 
-  const fetchDefaultLevel = async () => {
+  const fetchDefaultLevel = useCallback(async () => {
     try {
       const res = await axios.get('/api/settings');
       const data = res?.data?.data || {};
@@ -37,8 +35,8 @@ export default function AdminMembershipsPage() {
         quota_low_threshold: Number(data.quota_low_threshold ?? 0.2)
       });
     } catch { message.error('加载默认等级失败'); }
-  };
-  useEffect(() => { fetchDefaultLevel(); }, []);
+  }, [defaultForm]);
+  useEffect(() => { fetchDefaultLevel(); }, [fetchDefaultLevel]);
 
   const openEdit = (record: any) => {
     setEditing(record);
@@ -139,7 +137,7 @@ export default function AdminMembershipsPage() {
           style={{ marginBottom: 12 }}
           type="info"
           showIcon
-          message="说明"
+          title="说明"
           description={(
             <div>
               <div>默认配额：免费(每日10)、专业(每日100)、企业(每日1000)。</div>

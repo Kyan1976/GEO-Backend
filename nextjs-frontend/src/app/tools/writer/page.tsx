@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card, Typography, Space, Button } from 'antd';
-import { FileTextOutlined, ThunderboltOutlined, HomeOutlined } from '@ant-design/icons';
+import { ThunderboltOutlined, HomeOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
 const { Title, Paragraph } = Typography;

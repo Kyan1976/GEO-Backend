@@ -5,8 +5,6 @@ import { Card, Descriptions, Badge, Button, message } from 'antd';
 import axios from 'axios';
 
 export default function AdminHealthPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState({ status: '-', timestamp: '-', version: '-' });
 

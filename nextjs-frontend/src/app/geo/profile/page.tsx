@@ -4,6 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Descriptions, Space, Button, Tag, Statistic, message } from 'antd';
 import axios from 'axios';
+import { getApiErrorMessage } from '@/utils/apiErrorMessage.cjs';
 
 const levelColors = {
   free: 'default',
@@ -14,7 +15,6 @@ const levelColors = {
 
 export default function GeoProfilePage() {
   const userId = Number(typeof window !== 'undefined' ? localStorage.getItem('agd_user_id') || 0 : 0);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
 
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -43,8 +43,8 @@ export default function GeoProfilePage() {
       ]);
       setProfile(pRes?.data?.data || null);
       setQuota(qRes?.data?.data || null);
-    } catch {
-      message.error('获取个人信息失败');
+    } catch (error) {
+      message.error(getApiErrorMessage(error, '获取个人信息失败'));
     } finally {
       setLoading(false);
     }

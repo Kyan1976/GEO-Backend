@@ -7,8 +7,6 @@ import axios from 'axios';
 const { Paragraph } = Typography;
 
 export default function AdminPlatformsPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<any[]>([]);
 
@@ -28,7 +26,7 @@ export default function AdminPlatformsPage() {
   return (
     <Card title="平台配置" extra={<Button onClick={fetchPing}>刷新</Button>}>
       <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-        以下为平台连通性自检结果（根据后端环境变量是否配置 API Key 决定启用与否）。
+        以下为平台连通性自检结果（根据后端环境变量是否配置平台服务凭证决定启用与否）。
       </Paragraph>
       {loading ? (
         <div style={{ textAlign: 'center', padding: '20px' }}>加载中...</div>
@@ -54,7 +52,7 @@ export default function AdminPlatformsPage() {
                 </div>
               </div>
               <Space>
-                <Tag color={item.ok ? 'green' : 'red'}>{item.ok ? 'API Key 已配置' : '未配置'}</Tag>
+                <Tag color={item.ok ? 'green' : 'red'}>{item.ok ? '服务凭证已配置' : '未配置'}</Tag>
                 <span style={{ color: '#999' }}>{item.message}</span>
               </Space>
             </div>

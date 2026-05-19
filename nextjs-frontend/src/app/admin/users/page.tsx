@@ -1,15 +1,13 @@
 // @ts-nocheck
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Tag, Input, Select, Modal, Form, Popconfirm, message } from 'antd';
 import axios from 'axios';
 
 const statusColors = { active: 'green', disabled: 'red' };
 
 export default function AdminUsersPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -24,13 +22,13 @@ export default function AdminUsersPage() {
   const [form] = Form.useForm();
   const [pwdForm] = Form.useForm();
 
-  const fetchUsers = async (opts = {}) => {
+  const fetchUsers = useCallback(async (opts = {}) => {
     setLoading(true);
     try {
       const params = {
-        page: opts.page ?? page,
-        limit: opts.limit ?? limit,
-        q: opts.q ?? q
+        page: opts.page ?? 1,
+        limit: opts.limit ?? 10,
+        q: opts.q ?? ''
       };
       const res = await axios.get('/api/users', { params });
       const rows = res?.data?.data?.users || [];
@@ -42,17 +40,17 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await axios.get('/api/settings');
       const t = Number(res?.data?.data?.quota_low_threshold);
       if (!isNaN(t) && t >= 0 && t <= 1) setLowThreshold(t);
     } catch { message.error('加载设置失败'); }
-  };
+  }, []);
 
-  useEffect(() => { fetchUsers(); fetchSettings(); }, []);
+  useEffect(() => { fetchUsers({ page: 1, limit: 10, q: '' }); fetchSettings(); }, [fetchSettings, fetchUsers]);
 
   const handleCreate = async () => {
     try {
@@ -62,7 +60,7 @@ export default function AdminUsersPage() {
         message.success('用户创建成功');
         setCreateOpen(false);
         form.resetFields();
-        fetchUsers({ page: 1 });
+        fetchUsers({ page: 1, limit, q });
       } else {
         message.error(res?.data?.message || '创建失败');
       }
@@ -74,7 +72,7 @@ export default function AdminUsersPage() {
       const res = await axios.put(`/api/users/${id}`, payload);
       if (res?.data?.success) {
         message.success('更新成功');
-        fetchUsers();
+        fetchUsers({ page, limit, q });
       } else {
         message.error(res?.data?.message || '更新失败');
       }
@@ -86,7 +84,7 @@ export default function AdminUsersPage() {
       const res = await axios.delete(`/api/users/${id}`);
       if (res?.data?.success) {
         message.success('已删除');
-        fetchUsers();
+        fetchUsers({ page, limit, q });
       } else {
         message.error(res?.data?.message || '删除失败');
       }

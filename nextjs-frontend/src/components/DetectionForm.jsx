@@ -7,14 +7,10 @@ import axios from 'axios';
 
 const PLATFORM_OPTIONS = [
   { value: 'doubao', label: '豆包' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'kimi', label: 'Kimi' },
-  { value: 'qianwen', label: '千问' }
+  { value: 'deepseek', label: 'DeepSeek' }
 ];
 
 export default function DetectionForm({ loading, onSubmit }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [form] = Form.useForm();
   const [platformAvailability, setPlatformAvailability] = useState({});
   const [loaded, setLoaded] = useState(false);

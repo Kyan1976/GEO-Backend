@@ -21,6 +21,7 @@ dist/
 build/
 out/
 coverage/
+.playwright-cli/
 
 # logs
 logs/
@@ -41,4 +42,3 @@ Thumbs.db
 # generated TypeScript/Next files
 *.tsbuildinfo
 next-env.d.ts
-

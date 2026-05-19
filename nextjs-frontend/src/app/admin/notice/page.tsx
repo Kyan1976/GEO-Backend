@@ -1,19 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Form, Input, Button, message, Space, Typography } from 'antd';
 import axios from 'axios';
 
 const { TextArea } = Input;
 
 export default function AdminNoticePage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       let notice = '';
@@ -30,9 +28,9 @@ export default function AdminNoticePage() {
       message.error('加载通知失败');
     }
     setLoading(false);
-  };
+  }, [form]);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleSave = async (values: any) => {
     setLoading(true);

@@ -9,7 +9,6 @@ export async function concurrentLimit(items, processor, concurrency = 5) {
   if (!items || !items.length) return [];
 
   const results = new Array(items.length);
-  const queue = [...items];
   let index = 0;
 
   // 执行一批任务

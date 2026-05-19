@@ -1,17 +1,15 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Form, Space, Button, message, Input, Select } from 'antd';
 import Collapsible from '@/components/Collapsible';
 import axios from 'axios';
 
 export default function AdminSettingsPage() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('agd_token') || '' : '';
-
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get('/api/settings');
@@ -25,9 +23,9 @@ export default function AdminSettingsPage() {
     } catch {
       message.error('获取设置失败');
     } finally { setLoading(false); }
-  };
+  }, [form]);
 
-  useEffect(() => { fetchSettings(); }, []);
+  useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
   const submit = async () => {
     try {

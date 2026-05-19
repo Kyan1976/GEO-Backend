@@ -26,7 +26,7 @@ export default function Login({ onLogin, showRegister = true }) {
         return;
       }
       // 交给父组件处理持久化与 axios 默认头设置
-      onLogin && onLogin({ token, user });
+      if (onLogin) onLogin({ token, user });
       message.success('登录成功');
     } catch (e) {
       const backendMsg = e?.response?.data?.message;

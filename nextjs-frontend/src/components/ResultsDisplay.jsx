@@ -5,29 +5,15 @@ import { Card, Tag, Space } from 'antd';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkKeywordHighlight from '@/utils/remarkKeywordHighlight';
+import { countKeywordOccurrences } from '@/utils/keywordStats.cjs';
 import { FileTextOutlined } from '@ant-design/icons';
 
 const PLATFORM_OPTIONS = [
   { value: 'doubao', label: '豆包' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'kimi', label: 'Kimi' },
-  { value: 'qianwen', label: '千问' }
+  { value: 'deepseek', label: 'DeepSeek' }
 ];
 
 const ResultsDisplay = ({ results, highlightKeywords = [], loading = false }) => {
-  const countKeywordOccurrences = (text, keywords, englishWordBoundary = true) => {
-    const s = typeof text === 'string' ? text : String(text || '');
-    const list = Array.isArray(keywords) ? keywords.filter(Boolean) : [];
-    const escape = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return list.map((kw) => {
-      const e = escape(String(kw));
-      const useBoundary = englishWordBoundary && /^[A-Za-z]+$/.test(String(kw));
-      const re = new RegExp(useBoundary ? `\\b${e}\\b` : e, 'gi');
-      const c = [...s.matchAll(re)].length;
-      return { keyword: String(kw), count: c };
-    }).filter(item => item.count > 0);
-  };
-
   return (
     <Card
       title={<span><FileTextOutlined style={{ marginRight: 8, color: '#1f4dd2' }} />检测结果</span>}

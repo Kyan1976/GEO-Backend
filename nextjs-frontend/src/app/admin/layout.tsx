@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layout, Button, Space, Menu, message } from 'antd';
-import { useRouter, useParams, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import Login from '@/components/Login';
-import axios from 'axios';
 import { setAuthToken, clearAuth } from '@/lib/axiosConfig';
 
 const { Header, Sider, Content } = Layout;
@@ -16,7 +15,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const params = useParams();
   const [collapsed, setCollapsed] = useState(false);
   const [token, setToken] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);

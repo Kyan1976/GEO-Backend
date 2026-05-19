@@ -1,11 +1,11 @@
 // @ts-nocheck
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Layout, Typography, Collapse, Space, Button, Dropdown } from 'antd';
-import { ThunderboltOutlined, DownOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Layout, Typography, Collapse, Space, Button } from 'antd';
+import { ThunderboltOutlined } from '@ant-design/icons';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { clearAuth } from '@/lib/axiosConfig';
@@ -15,44 +15,13 @@ const { Title, Paragraph } = Typography;
 
 // 图片路径
 const bannerImg = '/assets/banner.svg';
-const goodieLogo = '/assets/goodie-logo.svg';
 const logoDoubao = '/assets/platforms/doubao.svg';
 const logoDeepseek = '/assets/platforms/deepseek.svg';
-const logoyuanbao = '/assets/platforms/yuanbao.svg';
-const logoKimi = '/assets/platforms/kimi.svg';
-const logoQianwen = '/assets/platforms/qianwen.svg';
 
 export default function HomePage() {
   const router = useRouter();
-  const [token, setToken] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-
-  // 从 localStorage 读取用户信息
-  useEffect(() => {
-    const storedToken = localStorage.getItem('agd_token') || '';
-    const storedUser = localStorage.getItem('agd_user');
-    setToken(storedToken);
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch {
-        setCurrentUser(null);
-      }
-    }
-
-  }, []);
-
-  const handleLogin = ({ token: tk, user }) => {
-    setToken(tk);
-    setCurrentUser(user);
-    localStorage.setItem('agd_token', tk);
-    localStorage.setItem('agd_user', JSON.stringify(user || null));
-    if (user?.id) localStorage.setItem('agd_user_id', String(user.id));
-  };
 
   const handleLogout = () => {
-    setToken('');
-    setCurrentUser(null);
     clearAuth();
     router.push('/');
   };
@@ -61,14 +30,11 @@ export default function HomePage() {
   const platformLogos = [
     { src: logoDoubao, name: '豆包' },
     { src: logoDeepseek, name: 'DeepSeek' },
-    { src: logoKimi, name: 'Kimi' },
-    { src: logoQianwen, name: '千问' },
-    { src: logoyuanbao, name: '元宝' },
   ];
 
   return (
     <Layout className="layout">
-      <Header token={token} onLogout={handleLogout} isGeoRoute={false} />
+      <Header onLogout={handleLogout} isGeoRoute={false} />
       <Content style={{ padding: 0, marginTop: 64 }}>
         {/* Goodie 风格：英雄区（深色，中文） */}
         <div className="landing-hero">
@@ -86,14 +52,14 @@ export default function HomePage() {
             <div className="platform-strip">
               {platformLogos.map((platform, idx) => (
                 platform.src ? (
-                  <img key={idx} className="platform-logo" src={platform.src} alt={platform.name} />
+                  <Image key={idx} className="platform-logo" src={platform.src} alt={platform.name} width={42} height={42} />
                 ) : (
                   <span key={idx} className="platform-chip">{platform.name}</span>
                 )
               ))}
             </div>
             <Paragraph className="hero-desc" style={{ marginBottom: 24 }}>
-              深度洞察品牌在人工智能推荐系统中的表现，释放 AI 搜索流量增长潜力，掌控大模型如何谈论你；在 豆包、DeepSeek、Kimi、元宝、千问 等 AI 引擎中稳定获取需求与可见性。
+              深度洞察品牌在人工智能推荐系统中的表现，释放 AI 搜索流量增长潜力，掌控大模型如何谈论你；在豆包、DeepSeek中稳定获取需求与可见性。
             </Paragraph>
             <Space size="middle" className="hero-actions">
               <Button type="primary" size="large" className="pill-btn" icon={<ThunderboltOutlined />} onClick={() => router.push('/geo')}>
@@ -109,7 +75,7 @@ export default function HomePage() {
               </Button>
             </Space>
             <div className="hero-media">
-              <img src={bannerImg} alt="Banner" className="hero-img" />
+              <Image src={bannerImg} alt="Banner" className="hero-img" width={960} height={540} priority />
             </div>
           </div>
         </div>
