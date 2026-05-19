@@ -60,6 +60,15 @@ test('project semantic updates clear old project analysis data', () => {
   assert.match(block, /await deleteProjectAnalysisData\(req\.brandProject\.id\)/);
 });
 
+test('project delete route supports explicit permanent deletion for archived projects', () => {
+  const block = routeBlock('delete', '/:id');
+
+  assert.match(block, /permanent/);
+  assert.match(block, /ProjectDeletionService\.deleteArchivedProject\(req\.brandProject\)/);
+  assert.match(block, /品牌项目已删除/);
+  assert.match(block, /ProjectArchiveService\.archiveProject\(req\.brandProject\)/);
+});
+
 test('project platform updates reconcile existing prompt platform selections', () => {
   const block = routeBlock('put', '/:id');
 

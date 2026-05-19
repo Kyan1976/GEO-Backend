@@ -153,6 +153,16 @@ export default function GeoProjectsPage() {
     }
   };
 
+  const deleteArchivedProject = async (record) => {
+    try {
+      await axios.delete(`/api/geo-projects/${record.id}`, { params: { permanent: true } });
+      message.success('品牌项目已删除');
+      fetchProjects();
+    } catch (error) {
+      message.error(getApiErrorMessage(error, '删除品牌项目失败'));
+    }
+  };
+
   const runProject = async (record) => {
     const prompts = Array.isArray(record.trackedPrompts) ? record.trackedPrompts : [];
     const runnablePromptIds = getRunnableProjectPromptIds(prompts, record.platforms);
@@ -408,7 +418,12 @@ export default function GeoProjectsPage() {
             <Button size="small" disabled={row.status === 'archived'} onClick={() => openCompetitors(row)}>竞品</Button>
             <Button size="small" type="primary" disabled={row.status === 'archived'} onClick={() => openEdit(row)}>编辑</Button>
             {row.status === 'archived' ? (
-              <Button size="small" onClick={() => updateStatus(row, 'active')}>恢复</Button>
+              <>
+                <Button size="small" onClick={() => updateStatus(row, 'active')}>恢复</Button>
+                <Popconfirm title="确认永久删除该品牌项目？" onConfirm={() => deleteArchivedProject(row)}>
+                  <Button size="small" danger>删除</Button>
+                </Popconfirm>
+              </>
             ) : (
               <Popconfirm title="确认归档该品牌项目？" onConfirm={() => updateStatus(row, 'archived')}>
                 <Button size="small" danger>归档</Button>

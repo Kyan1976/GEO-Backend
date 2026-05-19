@@ -37,3 +37,10 @@ test('project page distinguishes platform-mismatched prompts from missing prompt
   assert.match(source, /Prompt 的监测平台与项目监测平台不一致/);
   assert.match(source, /请检查品牌项目监测平台设置/);
 });
+
+test('project page can permanently delete archived projects', () => {
+  assert.match(source, /deleteArchivedProject/);
+  assert.match(source, /params:\s*\{\s*permanent:\s*true\s*\}/);
+  assert.match(source, /品牌项目已删除/);
+  assert.match(source, /确认永久删除该品牌项目/);
+});

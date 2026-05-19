@@ -29,6 +29,7 @@ const ReportSnapshotService = require('../services/ReportSnapshotService');
 const PlatformSelectionService = require('../services/PlatformSelectionService');
 const PromptAnalysisCleanupService = require('../services/PromptAnalysisCleanupService');
 const ProjectArchiveService = require('../services/ProjectArchiveService');
+const ProjectDeletionService = require('../services/ProjectDeletionService');
 const ProjectLifecycleService = require('../services/ProjectLifecycleService');
 const ProjectFieldNormalizationService = require('../services/ProjectFieldNormalizationService');
 
@@ -385,10 +386,18 @@ router.put('/:id', loadProject, async (req, res) => {
 
 router.delete('/:id', loadProject, async (req, res) => {
   try {
+    const permanent = req.query.permanent === 'true' || req.query.permanent === '1';
+    if (permanent) {
+      const result = await ProjectDeletionService.deleteArchivedProject(req.brandProject);
+      if (!result.ok) {
+        return res.status(result.status || 400).json({ success: false, message: result.message });
+      }
+      return res.json({ success: true, message: '品牌项目已删除', data: result.deleted });
+    }
     await ProjectArchiveService.archiveProject(req.brandProject);
-    res.json({ success: true, message: '品牌项目已归档' });
+    return res.json({ success: true, message: '品牌项目已归档' });
   } catch (error) {
-    res.status(500).json({ success: false, message: '归档品牌项目失败' });
+    return res.status(500).json({ success: false, message: '处理品牌项目失败' });
   }
 });
 
