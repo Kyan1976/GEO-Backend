@@ -36,6 +36,35 @@ test('keeps stable default model names when no override is configured', () => {
   }
 });
 
+test('uses a responses model for doubao web search requests instead of the legacy chat model override', () => {
+  const originalDoubaoModel = process.env.DOUBAO_MODEL;
+  const originalDoubaoResponsesModel = process.env.DOUBAO_RESPONSES_MODEL;
+
+  process.env.DOUBAO_MODEL = 'doubao-1-5-pro-32k-250115';
+  delete process.env.DOUBAO_RESPONSES_MODEL;
+
+  try {
+    const requestData = AIPlatformService.buildRequestData('doubao', '测试问题');
+    assert.equal(requestData.model, 'doubao-seed-1-6-250615');
+  } finally {
+    restoreEnv('DOUBAO_MODEL', originalDoubaoModel);
+    restoreEnv('DOUBAO_RESPONSES_MODEL', originalDoubaoResponsesModel);
+  }
+});
+
+test('allows overriding the doubao responses model independently', () => {
+  const originalDoubaoResponsesModel = process.env.DOUBAO_RESPONSES_MODEL;
+
+  process.env.DOUBAO_RESPONSES_MODEL = 'custom-responses-model';
+
+  try {
+    const requestData = AIPlatformService.buildRequestData('doubao', '测试问题');
+    assert.equal(requestData.model, 'custom-responses-model');
+  } finally {
+    restoreEnv('DOUBAO_RESPONSES_MODEL', originalDoubaoResponsesModel);
+  }
+});
+
 test('reports available platforms only for supported mainland monitoring platforms', () => {
   const originalDoubaoApiKey = AIPlatformService.platforms.doubao.apiKey;
   const originalDeepseekApiKey = AIPlatformService.platforms.deepseek.apiKey;

@@ -157,7 +157,7 @@ class AIPlatformService {
   buildRequestData(platform, question) {
     if (platform === 'doubao') {
       return {
-        model: this.getModelName(platform),
+        model: this.getDoubaoResponsesModel(),
         input: [
           {
             role: 'user',
@@ -180,6 +180,12 @@ class AIPlatformService {
       temperature: 0.7,
       max_tokens: this.getMaxTokens(platform)
     };
+  }
+
+  getDoubaoResponsesModel() {
+    const configuredModel = process.env.DOUBAO_RESPONSES_MODEL?.trim();
+    if (configuredModel) return configuredModel;
+    return 'doubao-seed-1-6-250615';
   }
 
   // 获取平台对应的模型名称
