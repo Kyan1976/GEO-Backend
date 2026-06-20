@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Login from '@/components/Login';
 import { message } from 'antd';
-import { setAuthToken, clearAuth } from '@/lib/axiosConfig';
+import axios, { setAuthToken, clearAuth } from '@/lib/axiosConfig';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 
 const { Header, Content, Sider } = Layout;
@@ -44,11 +44,14 @@ export default function GeoLayout({
     setAuthToken(tk);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/users/logout');  // 清除 httpOnly cookie（审计 C4）
+    } catch { /* 忽略 */ }
     setToken('');
     clearAuth();
     message.success('已退出登录');
-    router.replace('/login');  // 退出后跳转登录页（审计 M5）
+    router.replace('/login');
   };
 
   // 根据当前路径确定选中的菜单项和面包屑

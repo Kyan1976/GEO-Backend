@@ -6,6 +6,27 @@ const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { adminRequired, authRequired } = require('../middleware/auth');
+
+// 统一下发/清除 JWT cookie（审计 C4：token 迁 httpOnly cookie，防 XSS 窃取）
+// httpOnly: JS 不可读（防 XSS 偷 token）；SameSite=Strict: 防 CSRF；
+// Secure: 仅生产启用（本地 http 不启用否则浏览器不发送）
+const TOKEN_COOKIE_NAME = 'agd_token';
+function setAuthCookie(res, token) {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookie(TOKEN_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: 'lax',  // lax: 防 CSRF 又允许顶层导航带 cookie（strict 会导致外链进入判定未登录）
+    secure: isProd,
+    maxAge: 24 * 60 * 60 * 1000,  // 24h，与 token 有效期一致
+    path: '/',
+  });
+}
+function clearAuthCookie(res) {
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie(TOKEN_COOKIE_NAME, {
+    httpOnly: true, sameSite: 'lax', secure: isProd, path: '/',
+  });
+}
 const CaptchaService = require('../services/CaptchaService');
 const AccessControlService = require('../services/AccessControlService');
 
@@ -140,6 +161,9 @@ router.post('/login', loginLimiter, async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // 下发 httpOnly cookie 作为权威认证通道（响应体仍返回 token 兼容现有前端）
+    setAuthCookie(res, token);
+
     res.json({
       success: true,
       message: '登录成功',
@@ -162,6 +186,13 @@ router.post('/login', loginLimiter, async (req, res) => {
       message: '用户登录失败'
     });
   }
+});
+
+// 登出：清除 httpOnly cookie（审计 C4）
+// JWT 无服务端状态，登出主要靠客户端丢弃凭证；此端点清除 cookie 并返回成功
+router.post('/logout', (req, res) => {
+  clearAuthCookie(res);
+  res.json({ success: true, message: '已退出登录' });
 });
 
 // 获取用户信息

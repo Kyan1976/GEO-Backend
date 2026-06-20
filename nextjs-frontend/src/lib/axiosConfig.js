@@ -17,6 +17,7 @@ const API_BASE = normalizeApiBase(
 );
 
 axios.defaults.baseURL = API_BASE;
+axios.defaults.withCredentials = true;  // 携带 httpOnly cookie（审计 C4）
 
 // 确保拦截器只注册一次
 let interceptorsInitialized = false;

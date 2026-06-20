@@ -5,7 +5,7 @@ import { Layout, Button, Space, Menu, message } from 'antd';
 import { useRouter, usePathname } from 'next/navigation';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import Login from '@/components/Login';
-import { setAuthToken, clearAuth } from '@/lib/axiosConfig';
+import axios, { setAuthToken, clearAuth } from '@/lib/axiosConfig';
 
 const { Header, Sider, Content } = Layout;
 
@@ -46,12 +46,15 @@ export default function AdminLayout({
     setAuthToken(tk);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await axios.post('/api/users/logout');  // 清除 httpOnly cookie（审计 C4）
+    } catch { /* 忽略：即使后端调用失败也清除本地凭证 */ }
     setToken('');
     setCurrentUser(null);
     clearAuth();
     message.success('已退出登录');
-    router.replace('/login');  // 退出后跳转登录页（审计 M5）
+    router.replace('/login');
   };
 
   // 获取当前选中的菜单项

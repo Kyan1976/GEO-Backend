@@ -21,6 +21,7 @@ const AIPlatformService = require('../services/AIPlatformService');
 const ResultParserService = require('../services/ResultParserService');
 const ProjectRecordFinalizationService = require('../services/ProjectRecordFinalizationService');
 const ScheduleProjectContextService = require('../services/ScheduleProjectContextService');
+const DetectionService = require('../services/DetectionService');  // 业务编排（审计 N4）
 
 const MAINLAND_MONITORING_PLATFORMS = ['doubao', 'deepseek'];
 const SAFE_PLATFORM_FAILURE_MESSAGE = '监测平台调用失败，请稍后重试';
@@ -51,55 +52,8 @@ router.get('/brands', authRequired, async (req, res) => {
   }
 });
 
-async function resolveProjectContext(req, source) {
-  return ScheduleProjectContextService.resolveProjectContext({
-    user: req.user,
-    source,
-    messages: {
-      promptRequiresProject: '使用 Prompt 检测时必须提供 project_id',
-      archivedProject: '归档项目不能运行检测',
-      disabledPrompt: '停用 Prompt 不能运行检测'
-    }
-  });
-}
-
-async function saveCompletedDetectionResult({
-  user_id,
-  platform,
-  question,
-  brand,
-  brandKeywordsStr,
-  projectContext,
-  responseText,
-  aiResponse = null
-}) {
-  const record = await QuestionRecord.create({
-    user_id: projectContext?.user_id || user_id,
-    project_id: projectContext?.project_id || null,
-    tracked_prompt_id: projectContext?.tracked_prompt_id || null,
-    platform,
-    question,
-    brand: brand ? String(brand).trim() : null,
-    brand_keywords: brandKeywordsStr || ''
-  });
-
-  await ResultDetail.create({
-    question_record_id: record.id,
-    ai_response_original: responseText,
-    parsing_status: 'completed'
-  });
-
-  const keywordsArr = typeof brandKeywordsStr === 'string'
-    ? brandKeywordsStr.split(/[,，]/).map(s => s.trim()).filter(Boolean)
-    : [];
-  await ProjectRecordFinalizationService.finalize({
-    record,
-    responseText,
-    aiResponse,
-    keywords: keywordsArr
-  });
-  return record;
-}
+// resolveProjectContext / saveCompletedDetectionResult / processAIQuery
+// 已抽离到 services/DetectionService.js（审计 N4）
 
 // 创建检测任务
 router.post('/create', authRequired, async (req, res) => {
@@ -114,7 +68,7 @@ router.post('/create', authRequired, async (req, res) => {
       });
     }
 
-    const projectContext = await resolveProjectContext(req, req.body);
+    const projectContext = await DetectionService.resolveProjectContext({ user: req.user, source: req.body });
     if (projectContext.error) {
       return res.status(projectContext.error.status).json({
         success: false,
@@ -208,7 +162,7 @@ router.post('/create', authRequired, async (req, res) => {
       });
 
       // 异步处理AI查询
-      processAIQuery(questionRecord.id, platform, question);
+      DetectionService.processAIQuery(questionRecord.id, platform, question);
 
       results.push({
         record_id: questionRecord.id,
@@ -236,63 +190,8 @@ router.post('/create', authRequired, async (req, res) => {
 });
 
 // 异步处理AI查询
-async function processAIQuery(recordId, platform, question) {
-  try {
-    // 调用AI平台API
-    const aiResult = await AIPlatformService.queryPlatform(platform, question);
+// processAIQuery 已抽离到 services/DetectionService.js（审计 N4）
 
-    if (!aiResult.success) {
-      await QuestionRecord.update(
-        {
-          status: 'failed',
-          error_message: SAFE_PLATFORM_FAILURE_MESSAGE
-        },
-        { where: { id: recordId } }
-      );
-      return;
-    }
-
-    // 仅保存原始回答文本
-    const originalText = ResultParserService.extractResponseText(aiResult.data);
-    if (!String(originalText || '').trim()) {
-      await QuestionRecord.update(
-        {
-          status: 'failed',
-          error_message: '监测平台返回内容为空'
-        },
-        { where: { id: recordId } }
-      );
-      return;
-    }
-    await ResultDetail.create({
-      question_record_id: recordId,
-      ai_response_original: originalText,
-      parsing_status: 'completed'
-    });
-
-    // 读取记录以获取关键词，并计算统计
-    const rec = await QuestionRecord.findByPk(recordId);
-    const brandKeywordsArr = typeof rec?.brand_keywords === 'string'
-      ? rec.brand_keywords.split(/[,，]/).map(s => s.trim()).filter(Boolean)
-      : Array.isArray(rec?.brand_keywords) ? rec.brand_keywords : [];
-    await ProjectRecordFinalizationService.finalize({
-      record: rec,
-      responseText: originalText,
-      aiResponse: aiResult.data,
-      keywords: brandKeywordsArr
-    });
-
-  } catch (error) {
-    console.error(`处理AI查询失败 (recordId: ${recordId}):`, error);
-    await QuestionRecord.update(
-      {
-        status: 'failed',
-        error_message: SAFE_PLATFORM_FAILURE_MESSAGE
-      },
-      { where: { id: recordId } }
-    );
-  }
-}
 
 // 获取检测任务状态
 router.get('/status/:recordId', authRequired, async (req, res) => {
@@ -556,7 +455,7 @@ router.get('/stream', authRequired, async (req, res) => {
       return res.end();
     }
 
-    const projectContext = await resolveProjectContext(req, req.query);
+    const projectContext = await DetectionService.resolveProjectContext({ user: req.user, source: req.query });
     if (projectContext.error) {
       res.write(`data: ${JSON.stringify({ event: 'error', message: projectContext.error.message })}\n\n`);
       return res.end();
@@ -639,7 +538,7 @@ router.get('/stream', authRequired, async (req, res) => {
 
       streamReq.data.on('end', async () => {
         try {
-          await saveCompletedDetectionResult({
+          await DetectionService.saveCompletedDetectionResult({
             user_id,
             platform,
             question,
@@ -723,7 +622,7 @@ router.get('/stream', authRequired, async (req, res) => {
 
         streamReq.data.on('end', async () => {
           try {
-            await saveCompletedDetectionResult({
+            await DetectionService.saveCompletedDetectionResult({
               user_id,
               platform,
               question,
@@ -791,7 +690,7 @@ router.get('/stream', authRequired, async (req, res) => {
         }
         if (clientGone) return;
         // 持久化记录
-        await saveCompletedDetectionResult({
+        await DetectionService.saveCompletedDetectionResult({
           user_id,
           platform,
           question,

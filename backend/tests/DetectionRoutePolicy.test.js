@@ -24,9 +24,11 @@ test('legacy detection route avoids provider configuration wording in user respo
 });
 
 test('legacy async detection guards empty AI responses before creating result details', () => {
-  const extractIndex = routeSource.indexOf('const originalText = ResultParserService.extractResponseText(aiResult.data)');
-  const detailIndex = routeSource.indexOf('await ResultDetail.create', extractIndex);
-  const guardIndex = routeSource.indexOf('监测平台返回内容为空', extractIndex);
+  // processAIQuery 已抽离到 DetectionService.js（审计 N4），从 service 源码断言
+  const serviceSource = fs.readFileSync(path.resolve(__dirname, '../services/DetectionService.js'), 'utf8');
+  const extractIndex = serviceSource.indexOf('const originalText = ResultParserService.extractResponseText(aiResult.data)');
+  const detailIndex = serviceSource.indexOf('await ResultDetail.create', extractIndex);
+  const guardIndex = serviceSource.indexOf('监测平台返回内容为空', extractIndex);
 
   assert.ok(extractIndex > 0);
   assert.ok(detailIndex > extractIndex);

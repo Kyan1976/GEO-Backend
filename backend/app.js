@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
@@ -78,6 +79,7 @@ app.use('/api/', limiter);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(cookieParser());  // 解析 cookie（审计 C4：token 迁 httpOnly cookie）
 
 // 数据库连接与模型
 const { sequelize, User, MembershipPlan, Setting } = require('./models');

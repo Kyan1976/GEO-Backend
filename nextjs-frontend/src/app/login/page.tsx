@@ -1,14 +1,14 @@
-// @ts-nocheck
 'use client';
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import Login from '@/components/Login';
+import type { LoginResponse } from '@/types/api';
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const handleLogin = ({ token: tk, user }) => {
+  const handleLogin = ({ token: tk, user }: LoginResponse) => {
     localStorage.setItem('agd_token', tk);
     localStorage.setItem('agd_user', JSON.stringify(user || null));
     if (user?.id) localStorage.setItem('agd_user_id', String(user.id));
