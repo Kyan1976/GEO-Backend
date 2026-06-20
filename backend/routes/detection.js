@@ -368,7 +368,7 @@ router.get('/history', adminRequired, async (req, res) => {
         { model: User, as: 'user', attributes: ['id', 'username', 'email'] }
       ],
       order: [['created_at', 'DESC']],
-      limit: parseInt(limit),
+      limit: Math.min(parseInt(limit) || 20, 100),  // 分页上限防 DoS（审计 N1）
       offset: parseInt(offset)
     });
     res.json({
@@ -376,8 +376,8 @@ router.get('/history', adminRequired, async (req, res) => {
       data: {
         total: count,
         page: parseInt(page),
-        limit: parseInt(limit),
-        total_pages: Math.ceil(count / limit),
+        limit: Math.min(parseInt(limit) || 20, 100),  // 分页上限防 DoS（审计 N1）
+        total_pages: Math.ceil(count / Math.min(parseInt(limit) || 20, 100)),
         records: rows
       }
     });
@@ -417,7 +417,7 @@ router.get('/history/:userId', authRequired, async (req, res) => {
         attributes: ['ai_response_original', 'parsing_status', 'parsing_error', 'created_at']
       }],
       order: [['created_at', 'DESC']],
-      limit: parseInt(limit),
+      limit: Math.min(parseInt(limit) || 20, 100),  // 分页上限防 DoS（审计 N1）
       offset: parseInt(offset)
     });
 
@@ -426,8 +426,8 @@ router.get('/history/:userId', authRequired, async (req, res) => {
       data: {
         total: count,
         page: parseInt(page),
-        limit: parseInt(limit),
-        total_pages: Math.ceil(count / limit),
+        limit: Math.min(parseInt(limit) || 20, 100),  // 分页上限防 DoS（审计 N1）
+        total_pages: Math.ceil(count / Math.min(parseInt(limit) || 20, 100)),
         records: rows
       }
     });
@@ -455,9 +455,13 @@ router.delete('/record/:id', authRequired, async (req, res) => {
     if (req.user.role !== 'admin' && rec.user_id !== req.user.id) {
       return res.status(403).json({ success: false, message: '无权删除' });
     }
-    await VisibilityMetric.destroy({ where: { question_record_id: id } });
-    await ResultDetail.destroy({ where: { question_record_id: id } });
-    await QuestionRecord.destroy({ where: { id } });
+    // 跨表删除用事务（审计 N3），避免中途失败留孤儿记录
+    const sequelize = require('../config/database');
+    await sequelize.transaction(async (t) => {
+      await VisibilityMetric.destroy({ where: { question_record_id: id } }, { transaction: t });
+      await ResultDetail.destroy({ where: { question_record_id: id } }, { transaction: t });
+      await QuestionRecord.destroy({ where: { id } }, { transaction: t });
+    });
     res.json({ success: true, message: '记录已删除' });
   } catch (error) {
     console.error('删除记录失败:', error);
@@ -489,9 +493,14 @@ router.delete('/history/:userId', authRequired, async (req, res) => {
     if (ids.length === 0) {
       return res.json({ success: true, message: '无匹配记录', data: { deleted: 0 } });
     }
-    await VisibilityMetric.destroy({ where: { question_record_id: { [Op.in]: ids } } });
-    await ResultDetail.destroy({ where: { question_record_id: { [Op.in]: ids } } });
-    const del = await QuestionRecord.destroy({ where: { id: { [Op.in]: ids } } });
+    // 批量跨表删除用事务（审计 N3）
+    const sequelize = require('../config/database');
+    let del = 0;
+    await sequelize.transaction(async (t) => {
+      await VisibilityMetric.destroy({ where: { question_record_id: { [Op.in]: ids } } }, { transaction: t });
+      await ResultDetail.destroy({ where: { question_record_id: { [Op.in]: ids } } }, { transaction: t });
+      del = await QuestionRecord.destroy({ where: { id: { [Op.in]: ids } } }, { transaction: t });
+    });
     res.json({ success: true, message: '批量删除完成', data: { deleted: del } });
   } catch (error) {
     console.error('批量删除失败:', error);
@@ -523,6 +532,24 @@ router.get('/stream', authRequired, async (req, res) => {
     if (typeof res.flushHeaders === 'function') {
       res.flushHeaders();
     }
+
+    // SSE 资源清理（审计 Top5-5 / M4）：客户端断开时销毁上游 axios stream + 清理定时器，
+    // 防止 socket/句柄泄漏与慢速攻击。三个流分支共用此清理器。
+    let activeStream = null;   // 当前活跃的上游 axios stream（streamReq.data）
+    let activeTimers = [];     // 模拟流式用的 setTimeout 句柄
+    let clientGone = false;    // 客户端是否已断开，避免 end 后再 write 抛错
+    const cleanup = () => {
+      if (clientGone) return;
+      clientGone = true;
+      if (activeStream && typeof activeStream.destroy === 'function') {
+        try { activeStream.destroy(); } catch (_) { /* noop */ }
+      }
+      activeTimers.forEach(t => { try { clearTimeout(t); } catch (_) { /* noop */ } });
+      activeTimers = [];
+      try { res.end(); } catch (_) { /* noop */ }
+    };
+    req.on('close', cleanup);
+    req.on('aborted', cleanup);
 
     if (!question || (typeof question === 'string' && question.trim() === '')) {
       res.write(`data: ${JSON.stringify({ event: 'error', message: '问题不能为空' })}\n\n`);
@@ -581,8 +608,10 @@ router.get('/stream', authRequired, async (req, res) => {
         proxy: false,
         httpsAgent: new https.Agent({ keepAlive: true })
       });
+      activeStream = streamReq.data;  // 供 req.on('close') 清理
 
       streamReq.data.on('data', (chunk) => {
+        if (clientGone) return;
         const str = chunk.toString('utf8');
         const lines = str.split('\n');
         for (const line of lines) {
@@ -664,8 +693,10 @@ router.get('/stream', authRequired, async (req, res) => {
           proxy: false,
           httpsAgent: agent
         });
+        activeStream = streamReq.data;  // 供 req.on('close') 清理
 
         streamReq.data.on('data', (chunk) => {
+          if (clientGone) return;
           const str = chunk.toString('utf8');
           const lines = str.split('\n');
           for (const line of lines) {
@@ -748,11 +779,17 @@ router.get('/stream', authRequired, async (req, res) => {
         };
         const chunks = toChunks(fullText);
         for (const piece of chunks) {
+          if (clientGone) return;  // 客户端已断开，停止输出
           res.write(`data: ${JSON.stringify({ event: 'delta', content: piece })}\n\n`);
           // 尽量刷新，让浏览器及时显示
           if (typeof res.flush === 'function') { try { res.flush(); } catch (_) { } }
-          await new Promise(r => setTimeout(r, 45));
+          // 将 timer 纳入 activeTimers，客户端断开时可清理（审计 M4/M11）
+          await new Promise((resolve) => {
+            const t = setTimeout(resolve, 45);
+            activeTimers.push(t);
+          });
         }
+        if (clientGone) return;
         // 持久化记录
         await saveCompletedDetectionResult({
           user_id,
@@ -764,12 +801,15 @@ router.get('/stream', authRequired, async (req, res) => {
           responseText: fullText,
           aiResponse: result.data
         });
+        if (clientGone) return;
         res.write(`data: ${JSON.stringify({ event: 'done' })}\n\n`);
         res.end();
       } catch (err) {
-        console.error('模拟流式查询失败:', err?.message || err);
-        res.write(`data: ${JSON.stringify({ event: 'error', message: SAFE_PLATFORM_FAILURE_MESSAGE })}\n\n`);
-        res.end();
+        if (!clientGone) {
+          console.error('模拟流式查询失败:', err?.message || err);
+          try { res.write(`data: ${JSON.stringify({ event: 'error', message: SAFE_PLATFORM_FAILURE_MESSAGE })}\n\n`); } catch (_) { }
+          try { res.end(); } catch (_) { }
+        }
       }
     }
 

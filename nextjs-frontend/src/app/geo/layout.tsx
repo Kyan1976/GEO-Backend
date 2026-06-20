@@ -48,6 +48,7 @@ export default function GeoLayout({
     setToken('');
     clearAuth();
     message.success('已退出登录');
+    router.replace('/login');  // 退出后跳转登录页（审计 M5）
   };
 
   // 根据当前路径确定选中的菜单项和面包屑

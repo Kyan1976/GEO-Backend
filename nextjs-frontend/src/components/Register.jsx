@@ -12,17 +12,25 @@ export default function Register({ onLogin }) {
   const [form] = Form.useForm();
   const router = useRouter();
   const [captchaId, setCaptchaId] = useState('');
-  const [captchaSvg, setCaptchaSvg] = useState('');
+  const [captchaSrc, setCaptchaSrc] = useState('');
   const [captchaLoading, setCaptchaLoading] = useState(false);
 
-  const normalizeSvg = (raw) => {
+  // 将后端返回的 SVG 编码为 data URI，供 <img src> 渲染。
+  // 用 <img> 而非 dangerouslySetInnerHTML：img 中的 SVG 不会执行 <script>/onload，
+  // 彻底消除验证码 SVG 被篡改导致的 XSS 风险（审计 Top5-1）。
+  const svgToDataUri = (raw) => {
     try {
       const s = String(raw || '');
-      if (!s) return s;
-      // 为内联 SVG 注入自适应样式，避免在小屏上横向溢出
-      return s.replace('<svg', '<svg style="max-width:100%; height:auto; display:block" preserveAspectRatio="xMidYMid meet"');
+      if (!s) return '';
+      if (typeof btoa !== 'undefined' && typeof window !== 'undefined') {
+        // 浏览器环境，处理 UTF-8
+        const utf8 = unescape(encodeURIComponent(s));
+        return `data:image/svg+xml;base64,${btoa(utf8)}`;
+      }
+      // 兜底：URL 编码（Node SSR 或无 btoa）
+      return `data:image/svg+xml;utf8,${encodeURIComponent(s)}`;
     } catch {
-      return raw || '';
+      return '';
     }
   };
 
@@ -32,7 +40,7 @@ export default function Register({ onLogin }) {
       const res = await axios.get('/api/captcha/image');
       const data = res?.data?.data || {};
       setCaptchaId(data.id || '');
-      setCaptchaSvg(normalizeSvg(data.svg || ''));
+      setCaptchaSrc(svgToDataUri(data.svg || ''));
     } catch {
       message.error('验证码加载失败，请稍后重试');
     } finally {
@@ -129,8 +137,18 @@ export default function Register({ onLogin }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', width: '100%', margin: '8px 0 12px 0' }}>
                 <div
                   style={{ flex: 1, minWidth: 0, height: 60, border: '1px solid #eee', borderRadius: 8, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  dangerouslySetInnerHTML={{ __html: captchaSvg || '<span style=\'color:#999\'>验证码加载中…</span>' }}
-                />
+                >
+                  {captchaSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={captchaSrc}
+                      alt="验证码"
+                      style={{ maxWidth: '100%', height: 'auto', maxHeight: 58, display: 'block' }}
+                    />
+                  ) : (
+                    <span style={{ color: '#999' }}>验证码加载中…</span>
+                  )}
+                </div>
                 <Button
                   size="large"
                   icon={<ReloadOutlined />}

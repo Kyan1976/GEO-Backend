@@ -233,12 +233,21 @@ async function consumeQuotaDirect(userId, feature, amount) {
       }
     }
 
-    const nextCount = (counter.used_count || 0) + Number(amount || 0);
-    if (nextCount > limit) {
-      return { ok: false, used: counter.used_count || 0, limit, reason: 'exceeded' };
+    // 原子化扣减：用单条带条件 UPDATE 防止 TOCTOU 竞态（审计 Top5-4 / M3）。
+    // 条件 used_count + amount <= limit 在数据库层校验，affectedRows=0 表示超额。
+    const { Op, literal } = require('sequelize');
+    const amt = Number(amount || 0);
+    const [affectedCount] = await UsageCounter.update(
+      { used_count: literal('used_count + ' + amt) },
+      { where: { id: counter.id, used_count: { [Op.lte]: limit - amt } } }
+    );
+    if (affectedCount === 0) {
+      // 扣减未生效，说明并发下已超额；重新读取当前值返回
+      const refreshed = await UsageCounter.findByPk(counter.id);
+      return { ok: false, used: refreshed ? refreshed.used_count : counter.used_count, limit, reason: 'exceeded' };
     }
-    await counter.update({ used_count: nextCount });
-    return { ok: true, used: nextCount, limit };
+    const refreshed = await UsageCounter.findByPk(counter.id);
+    return { ok: true, used: refreshed ? refreshed.used_count : (counter.used_count + amt), limit };
   } catch (error) {
     console.error('consumeQuotaDirect 失败:', error);
     return { ok: false, used: 0, limit: 0, reason: 'error' };

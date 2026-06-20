@@ -51,6 +51,7 @@ export default function AdminLayout({
     setCurrentUser(null);
     clearAuth();
     message.success('已退出登录');
+    router.replace('/login');  // 退出后跳转登录页（审计 M5）
   };
 
   // 获取当前选中的菜单项

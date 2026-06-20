@@ -123,3 +123,36 @@ export function clearAuth() {
 }
 
 export default axios;
+
+// 统一 API 封装（审计 M2/M3）：推荐新代码使用这些函数，
+// 自动解包后端 { success, data } 结构，统一错误处理。
+// 用法：import { apiGet } from '@/lib/axiosConfig';
+//      const users = await apiGet('/api/users');
+async function apiRequest(method, url, config) {
+  try {
+    const res = await axios({ method, url, ...config });
+    // 后端统一返回 { success, data, message }，返回 data 层；失败抛出
+    const body = res?.data;
+    if (body && typeof body === 'object' && 'success' in body) {
+      if (!body.success) {
+        const msg = body.message || '请求失败';
+        const err = new Error(msg);
+        err.response = res;
+        err.apiMessage = msg;
+        throw err;
+      }
+      return body.data;
+    }
+    // 非标准结构，原样返回
+    return body;
+  } catch (err) {
+    // 401 已由全局拦截器处理；其余错误向上抛，由调用方决定提示文案
+    throw err;
+  }
+}
+
+export const apiGet = (url, config) => apiRequest('get', url, config);
+export const apiPost = (url, data, config) => apiRequest('post', url, { ...config, data });
+export const apiPut = (url, data, config) => apiRequest('put', url, { ...config, data });
+export const apiDelete = (url, config) => apiRequest('delete', url, config);
+

@@ -136,7 +136,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         username: user.username,
         role: user.role 
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
 
@@ -316,11 +316,12 @@ router.get('/', adminRequired, async (req, res) => {
           ]
         }
       : {};
-    const offset = (Number(page) - 1) * Number(limit);
+    const safeLimit = Math.min(Number(limit) || 20, 100);  // 分页上限防 DoS（审计 N1）
+    const offset = (Number(page) - 1) * safeLimit;
     const { rows, count } = await User.findAndCountAll({
       where,
       offset,
-      limit: Number(limit),
+      limit: safeLimit,
       order: [['created_at', 'DESC']],
       attributes: ['id', 'username', 'email', 'role', 'status', 'membership_level', 'membership_expires_at', 'created_at', 'last_login']
     });

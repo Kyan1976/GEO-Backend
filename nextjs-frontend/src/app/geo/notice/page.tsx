@@ -9,16 +9,11 @@ export default function GeoNoticePage() {
   const [notice, setNotice] = useState('');
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
-  const API_BASE = useMemo(() => (
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:3000'
-  ).replace(/\/$/, ''), []);
-
   const fetchNotice = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/api/settings/notice`);
+      // 统一走相对路径（经 next.config rewrites 代理到后端），避免硬编码端口（审计 N5）
+      const res = await axios.get('/api/settings/notice');
       const data = res?.data?.data || {};
       setNotice(String(data.notice || ''));
       setUpdatedAt(data.updated_at || null);

@@ -15,7 +15,9 @@ const bcrypt = require('bcryptjs');
 
         if (admin) {
             await admin.update({ password: hashedPassword });
-            console.log(`SUCCESS: Password for user '${admin.username}' (ID: ${admin.id}) has been reset to: ${password}`);
+            // 安全：不再打印明文密码到日志（审计 C3）
+            console.log(`SUCCESS: Password for user '${admin.username}' (ID: ${admin.id}) has been reset.`);
+            console.log('       请通过 DEFAULT_ADMIN_PASSWORD 环境变量查看新密码。');
         } else {
             console.log('Admin user not found. Creating one...');
             await User.create({
@@ -26,7 +28,8 @@ const bcrypt = require('bcryptjs');
                 role: 'admin',
                 status: 'active'
             });
-            console.log(`SUCCESS: Admin user created with password: ${password}`);
+            console.log('SUCCESS: Admin user created.');
+            console.log('       新密码来自 DEFAULT_ADMIN_PASSWORD 环境变量，请查阅该变量。');
         }
     } catch (e) {
         console.error('Error resetting password:', e);

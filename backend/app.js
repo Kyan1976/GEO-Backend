@@ -7,6 +7,11 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 
+// 信任反向代理：使 express-rate-limit 按 X-Forwarded-For 取真实客户端 IP（审计 Top5-3 / M2）。
+// 默认信任 1 跳（常见 nginx/CDN 场景）；可通过 TRUST_PROXY_HOPS 覆盖。
+// 不设置此项时，反向代理后所有请求 IP 相同，登录限流等会失效或误伤。
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+
 // 中间件
 // CORS 配置白名单
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -27,8 +32,18 @@ app.use(cors({
 }));
 
 // 安全头
+// helmet（审计 N7）：不再全局关闭 CSP。后端主要是 API（返回 JSON），
+// 设宽松 CSP 作为纵深防御；前端 Next.js 的 CSP 在 next.config.ts 单独配置。
 app.use(helmet({
-  contentSecurityPolicy: false // 前端使用内联样式
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"]
+    }
+  }
 }));
 
 // 公开接口白名单（不需要速率限制）
@@ -105,14 +120,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 错误处理中间件
+// 错误处理中间件（审计 I5）：生产环境不回传内部错误细节，避免泄漏 SQL/字段名
 app.use((err, req, res, next) => {
   console.error(err.stack);
   const isDev = process.env.NODE_ENV === 'development';
-
+  // 已知的客户端错误（4xx）可回传 message；未知服务端错误（5xx）生产环境只回通用文案
+  const isClientError = err.status && err.status >= 400 && err.status < 500;
   res.status(err.status || 500).json({
     success: false,
-    message: isDev ? err.message : '请求处理失败',
+    message: (isDev || isClientError) ? err.message : '服务器内部错误，请稍后重试',
     ...(isDev && { stack: err.stack })
   });
 });
@@ -232,8 +248,19 @@ async function ensureDefaultAdmin() {
   try {
     const username = process.env.DEFAULT_ADMIN_USERNAME || 'admin';
     const email = process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com';
-    const passwordRaw = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123';
-    const hashed = await bcrypt.hash(passwordRaw, 10);
+    // 安全：生产环境必须由 DEFAULT_ADMIN_PASSWORD 提供，不再使用硬编码兜底（审计 C2）
+    const isProd = process.env.NODE_ENV === 'production';
+    const passwordRaw = process.env.DEFAULT_ADMIN_PASSWORD;
+    if (!passwordRaw) {
+      if (isProd) {
+        console.error('[FATAL] 生产环境必须设置 DEFAULT_ADMIN_PASSWORD 环境变量，拒绝使用默认密码启动。');
+        process.exit(1);
+      }
+      // 非生产环境仅警告，保留 Admin@123 便于本地开发
+      console.warn('[WARN] 未设置 DEFAULT_ADMIN_PASSWORD，开发环境使用默认密码 Admin@123。生产环境务必配置！');
+    }
+    const finalPwd = passwordRaw || 'Admin@123';
+    const hashed = await bcrypt.hash(finalPwd, 10);
 
     const user1 = await User.findByPk(1);
     if (!user1) {
@@ -327,6 +354,15 @@ async function ensureDefaultSettings() {
 
 (async () => {
   try {
+    // 安全前置校验：JWT_SECRET 必须存在且足够强（审计 Top5-2 / C1）
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || jwtSecret.length < 32) {
+      console.error('[FATAL] JWT_SECRET 未配置或长度不足 32 字符。');
+      console.error('       请在 backend/.env 中设置一个强随机值（如 openssl rand -hex 32）。');
+      console.error('       未配置 JWT_SECRET 会导致任意用户可伪造身份，服务拒绝启动。');
+      process.exit(1);
+    }
+
     await ensureExistingTableProjectColumns();
     await sequelize.sync();
     await ensureGeoMonitoringColumns();
@@ -382,8 +418,10 @@ async function ensureDefaultSettings() {
     console.log('数据库连接成功');
     // 先确保管理员 id=1
     await ensureDefaultAdmin();
-    // 再创建演示用户（避免占用 id=1）
-    await ensureDefaultUser();
+    // 演示用户仅在非生产环境创建（审计 C2）
+    if (process.env.NODE_ENV !== 'production') {
+      await ensureDefaultUser();
+    }
     await ensureDefaultPlans();
     await ensureDefaultSettings();
     // 启动定时调度器
