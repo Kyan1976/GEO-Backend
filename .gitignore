@@ -27,3 +27,23 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+.env
+.env.*
+*.bak*
+fix_*.php
+fill_*.php
+insert_*.php
+seed_*.php
+test_*.php
+vectorize_*.php
+
+# Lanzi customizations - ignore
+.env
+.env.*
+*.bak*
+fix_*.php
+fill_*.php
+insert_*.php
+seed_*.php
+test_*.php
+vectorize_*.php

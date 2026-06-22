@@ -15,8 +15,7 @@ class DistributionOrchestrator
 {
     public function __construct(
         private readonly DistributionPayloadBuilder $payloadBuilder,
-        private readonly DistributionPublisherManager $publisherManager,
-        private readonly TaskDistributionChannelSelector $channelSelector
+        private readonly DistributionPublisherManager $publisherManager
     ) {}
 
     /**
@@ -24,32 +23,19 @@ class DistributionOrchestrator
      */
     public function syncTaskChannels(Task $task, array $channelIds): void
     {
-        $activeIds = DistributionChannel::query()
+        $ids = DistributionChannel::query()
             ->whereIn('id', $channelIds)
             ->where('status', 'active')
             ->pluck('id')
-            ->mapWithKeys(static fn ($id): array => [(int) $id => true]);
+            ->map(fn ($id): int => (int) $id)
+            ->all();
 
-        $syncPayload = [];
-        $sortOrder = 0;
-        $seen = [];
-        foreach (array_values($channelIds) as $channelId) {
-            $id = (int) $channelId;
-            if ($id <= 0 || isset($seen[$id]) || ! isset($activeIds[$id])) {
-                continue;
-            }
-            $seen[$id] = true;
-
-            $syncPayload[$id] = [
-                'sort_order' => $sortOrder++,
-                'trigger' => 'after_local_publish',
-                'remote_status' => 'follow_local',
-                'failure_policy' => 'ignore_distribution_failure',
-                'max_attempts' => 3,
-            ];
-        }
-
-        $task->distributionChannels()->sync($syncPayload);
+        $task->distributionChannels()->syncWithPivotValues($ids, [
+            'trigger' => 'after_local_publish',
+            'remote_status' => 'follow_local',
+            'failure_policy' => 'ignore_distribution_failure',
+            'max_attempts' => 3,
+        ]);
     }
 
     public function enqueueForArticle(int|Article $article, string $action = 'publish'): void
@@ -63,7 +49,7 @@ class DistributionOrchestrator
                 return;
             }
 
-            $articleModel->load('task.distributionChannels');
+            $articleModel->loadMissing('task.distributionChannels');
             $publishScope = (string) ($articleModel->task?->publish_scope ?? 'local_and_distribution');
             if ($publishScope === 'local_only') {
                 return;
@@ -76,12 +62,6 @@ class DistributionOrchestrator
 
             $channels = $articleModel->task?->distributionChannels
                 ?->where('status', 'active') ?? new Collection;
-
-            if ($channels->isEmpty()) {
-                return;
-            }
-
-            $channels = $this->channelSelector->selectChannelsForArticle($articleModel, $channels, $action);
 
             if ($channels->isEmpty()) {
                 return;
@@ -107,7 +87,6 @@ class DistributionOrchestrator
 
                 $this->log('info', '文章已进入分发队列', $channel->id, $distribution->id, $articleModel->id, [
                     'event' => 'distribution.queued',
-                    'strategy' => (string) ($articleModel->task?->distribution_strategy ?? TaskDistributionChannelSelector::STRATEGY_BROADCAST),
                 ]);
                 ProcessArticleDistributionJob::dispatch((int) $distribution->id)
                     ->onQueue('distribution')

@@ -25,7 +25,6 @@ class AiModel extends Model
         'used_today',
         'total_used',
         'status',
-        'max_tokens',
     ];
 
     protected function casts(): array
@@ -35,7 +34,6 @@ class AiModel extends Model
             'daily_limit' => 'integer',
             'used_today' => 'integer',
             'total_used' => 'integer',
-            'max_tokens' => 'integer',
         ];
     }
 

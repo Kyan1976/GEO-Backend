@@ -17,6 +17,22 @@ use App\Http\Controllers\Api\V1\MaterialController;
 use App\Http\Controllers\Api\V1\TaskController;
 use Illuminate\Support\Facades\Route;
 
+// ── 健康检查 (2026-06-04 添加，在 v1 组外，路径: /api/health) ──
+Route::get('health', function () {
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'status' => 'ok',
+            'service' => 'geoflow',
+            'php_version' => PHP_VERSION,
+        ],
+        'meta' => [
+            'request_id' => uniqid(),
+            'timestamp' => date('c'),
+        ],
+    ]);
+});
+
 // 实际路径形如：/api/v1/...
 Route::prefix('v1')
     ->middleware(['api.request_id'])
@@ -26,10 +42,10 @@ Route::prefix('v1')
 
         // 需有效 Token + 对应 scope
         Route::middleware(['api.auth'])->group(function (): void {
-            // catalog:read — 下拉元数据（模型、提示词、库、作者、分类等）
+            // catalog:read
             Route::get('catalog', [CatalogController::class, 'show'])->middleware('api.scope:catalog:read');
 
-            // tasks:* — 任务 CRUD、启停、入队、子 Job 列表
+            // tasks:*
             Route::get('tasks', [TaskController::class, 'index'])->middleware('api.scope:tasks:read');
             Route::post('tasks', [TaskController::class, 'store'])->middleware('api.scope:tasks:write');
             Route::get('tasks/{task}', [TaskController::class, 'show'])
@@ -54,12 +70,12 @@ Route::prefix('v1')
                 ->whereNumber('task')
                 ->middleware('api.scope:tasks:read');
 
-            // jobs:read — 单条 task_runs 执行记录
+            // jobs:read
             Route::get('jobs/{job}', [JobController::class, 'show'])
                 ->whereNumber('job')
                 ->middleware('api.scope:jobs:read');
 
-            // materials:* — 后台素材库 CRUD 与库内条目管理
+            // materials:*
             Route::get('materials', [MaterialController::class, 'summary'])->middleware('api.scope:materials:read');
             Route::get('materials/{type}', [MaterialController::class, 'index'])->middleware('api.scope:materials:read');
             Route::post('materials/{type}', [MaterialController::class, 'store'])->middleware('api.scope:materials:write');
@@ -82,7 +98,7 @@ Route::prefix('v1')
                 ->whereNumber('id')
                 ->middleware('api.scope:materials:write');
 
-            // articles:* — 文章 CRUD、审核、发布、软删
+            // articles:*
             Route::get('articles', [ArticleController::class, 'index'])->middleware('api.scope:articles:read');
             Route::post('articles', [ArticleController::class, 'store'])->middleware('api.scope:articles:write');
             Route::get('articles/{article}', [ArticleController::class, 'show'])
@@ -100,5 +116,8 @@ Route::prefix('v1')
             Route::post('articles/{article}/trash', [ArticleController::class, 'trash'])
                 ->whereNumber('article')
                 ->middleware('api.scope:articles:write');
+            Route::post('articles/{article}/unpublish', [ArticleController::class, 'unpublish'])
+                ->whereNumber('article')
+                ->middleware('api.scope:articles:publish');
         });
     });

@@ -14,6 +14,13 @@
         <link rel="icon" href="{{ $siteFavicon }}">
     @endif
     <link rel="canonical" href="{{ $canonicalUrl ?? url()->current() }}">
+    {{-- Open Graph tags --}}
+    <meta property="og:title" content="{{ $pageTitle ?? $siteName }}">
+    <meta property="og:description" content="{{ $pageDescription ?? '' }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ $canonicalUrl ?? url()->current() }}">
+    <meta property="og:site_name" content="{{ $siteName }}">
+    <meta property="og:locale" content="zh_CN">
     @stack('head')
     <script src="{{ asset('js/tailwindcss.play-cdn.js') }}"></script>
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">

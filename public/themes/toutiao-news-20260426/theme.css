@@ -1,12 +1,12 @@
     :root {
-        --tt-red: #f04142;
-        --tt-red-dark: #d91f26;
+        --tt-brand: #8B5E83;
+        --tt-brand-dark: #6B3F5E;
         --tt-ink: #222226;
         --tt-muted: #737985;
         --tt-line: #eceff3;
         --tt-bg: #f6f7f9;
         --tt-card: #ffffff;
-        --tt-soft: #fff4f4;
+        --tt-soft: #f8f0f5;
     }
 
     .tt-body {
@@ -51,7 +51,7 @@
         width: 10px;
         height: 28px;
         border-radius: 999px;
-        background: linear-gradient(180deg, var(--tt-red), #ff7b5f);
+        background: linear-gradient(180deg, var(--tt-brand), #ff7b5f);
     }
 
     .tt-topnav {
@@ -69,8 +69,8 @@
 
     .tt-topnav a:hover,
     .tt-topnav a.is-active {
-        color: var(--tt-red);
-        border-bottom-color: var(--tt-red);
+        color: var(--tt-brand);
+        border-bottom-color: var(--tt-brand);
     }
 
     .tt-search {
@@ -95,7 +95,7 @@
 
     .tt-search button {
         padding: 10px 14px;
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-mobile-menu {
@@ -138,7 +138,7 @@
     .tt-channel:hover,
     .tt-channel.is-active {
         background: var(--tt-soft);
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-feed {
@@ -159,7 +159,7 @@
     }
 
     .tt-breaking strong {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-feed-card,
@@ -192,7 +192,7 @@
         height: 18px;
         margin-right: 9px;
         border-radius: 999px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
     }
 
     .tt-title-row {
@@ -218,7 +218,7 @@
         padding: 4px 9px;
         border-radius: 999px;
         background: var(--tt-soft);
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-size: 12px;
         font-weight: 750;
     }
@@ -246,7 +246,7 @@
     }
 
     .tt-article-title a:hover {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-article-summary {
@@ -261,7 +261,7 @@
         align-items: center;
         gap: 5px;
         margin-top: 14px;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-weight: 800;
     }
 
@@ -274,7 +274,7 @@
         border: 1px solid #f1e3e4;
         display: grid;
         place-items: center;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-size: 32px;
         font-weight: 900;
     }
@@ -319,7 +319,7 @@
     }
 
     .tt-hot-item:nth-child(-n+3) .tt-hot-index {
-        background: var(--tt-red);
+        background: var(--tt-brand);
         color: #fff;
     }
 
@@ -335,7 +335,7 @@
 
     .tt-page-kicker {
         margin-bottom: 8px;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-size: 13px;
         font-weight: 850;
         letter-spacing: .08em;
@@ -397,7 +397,7 @@
 
     .tt-prose h2 {
         font-size: 1.65em;
-        border-left: 4px solid var(--tt-red);
+        border-left: 4px solid var(--tt-brand);
         padding-left: 12px;
     }
 
@@ -414,7 +414,7 @@
     }
 
     .tt-prose a {
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-weight: 750;
     }
 
@@ -550,7 +550,7 @@
         width: 32px;
         height: 32px;
         border-radius: 9px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
         box-shadow: inset 0 -7px 14px rgba(0, 0, 0, .08);
     }
 
@@ -581,7 +581,7 @@
 
     .tt-search button {
         min-width: 46px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
         color: #fff;
     }
 
@@ -617,11 +617,11 @@
 
     .tt-channel:hover {
         background: #f7f8fa;
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-channel.is-active {
-        background: var(--tt-red);
+        background: var(--tt-brand);
         color: #fff;
         font-weight: 700;
     }
@@ -680,7 +680,7 @@
     .tt-breaking strong {
         padding: 2px 7px;
         border-radius: 3px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
         color: #fff;
         font-size: 12px;
     }
@@ -704,7 +704,7 @@
         width: 3px;
         height: 18px;
         margin-right: 1px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
     }
 
     .tt-article-card {
@@ -761,7 +761,7 @@
     }
 
     .tt-card-action:hover {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-thumb {
@@ -861,7 +861,7 @@
     .tt-prose h2 {
         margin: 1.9em 0 .75em;
         padding-left: 10px;
-        border-left: 3px solid var(--tt-red);
+        border-left: 3px solid var(--tt-brand);
         font-size: 24px;
         letter-spacing: 0;
     }
@@ -925,8 +925,8 @@
      * text-first feed rows when GEOFlow has no real cover image available.
      */
     :root {
-        --tt-red: #1B365D;
-        --tt-red-dark: #142946;
+        --tt-brand: #6B3F5E;
+        --tt-brand-dark: #4A2540;
         --tt-ink: #141413;
         --tt-muted: #5e5d59;
         --tt-line: #e8e5da;
@@ -956,7 +956,7 @@
         width: 6px;
         height: 28px;
         border-radius: 999px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
         box-shadow: none;
     }
 
@@ -966,8 +966,8 @@
 
     .tt-topnav a:hover,
     .tt-topnav a.is-active {
-        color: var(--tt-red);
-        border-bottom-color: var(--tt-red);
+        color: var(--tt-brand);
+        border-bottom-color: var(--tt-brand);
     }
 
     .tt-search {
@@ -979,7 +979,7 @@
 
     .tt-search button {
         min-width: 44px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
         color: #faf9f5;
     }
 
@@ -1007,12 +1007,12 @@
 
     .tt-channel:hover {
         background: #eef2f7;
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-channel.is-active {
         background: #eef2f7;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-weight: 700;
     }
 
@@ -1066,7 +1066,7 @@
 
     .tt-breaking strong {
         background: #eef2f7;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-weight: 700;
     }
 
@@ -1086,7 +1086,7 @@
     .tt-section-title::before {
         width: 3px;
         height: 18px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
     }
 
     .tt-article-card {
@@ -1111,7 +1111,7 @@
     }
 
     .tt-pill {
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-weight: 600;
     }
 
@@ -1137,7 +1137,7 @@
     }
 
     .tt-card-action:hover {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-sidebar {
@@ -1168,7 +1168,7 @@
         height: 22px;
         border-radius: 6px;
         background: #eef2f7;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-size: 12px;
         font-weight: 700;
     }
@@ -1315,8 +1315,8 @@
 
     .tt-channel.is-active {
         background: #EEF2F7;
-        color: var(--tt-red);
-        box-shadow: inset 3px 0 0 var(--tt-red);
+        color: var(--tt-brand);
+        box-shadow: inset 3px 0 0 var(--tt-brand);
     }
 
     @media (min-width: 1081px) {
@@ -1362,8 +1362,8 @@
 
     .tt-channel.is-active {
         background: #EEF2F7;
-        border-left-color: var(--tt-red);
-        color: var(--tt-red);
+        border-left-color: var(--tt-brand);
+        color: var(--tt-brand);
         box-shadow: none;
     }
 
@@ -1542,7 +1542,7 @@
     }
 
     .tt-breadcrumb a:hover {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-breadcrumb span:last-child {
@@ -1582,7 +1582,7 @@
     }
 
     .tt-related-card:hover {
-        color: var(--tt-red);
+        color: var(--tt-brand);
     }
 
     .tt-related-index {
@@ -1592,7 +1592,7 @@
         height: 22px;
         border-radius: 6px;
         background: #EEF2F7;
-        color: var(--tt-red);
+        color: var(--tt-brand);
         font-size: 12px;
         font-weight: 700;
     }
@@ -1820,7 +1820,7 @@
 
     .tt-hot-dots button.is-active {
         width: 18px;
-        background: var(--tt-red);
+        background: var(--tt-brand);
     }
 
     .tt-section-title::before {

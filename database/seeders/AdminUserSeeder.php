@@ -13,13 +13,10 @@ use Illuminate\Support\Str;
 
 class AdminUserSeeder extends Seeder
 {
-    /**
-     * 根据配置写入首次安装默认管理员，已存在同名账号时不覆盖。
-     */
     public function run(): void
     {
-        $username = trim((string) config('geoflow.initial_admin_username', 'admin')) ?: 'admin';
-        $email = trim((string) config('geoflow.initial_admin_email', 'admin@example.com')) ?: 'admin@example.com';
+        $username = trim((string) env('GEOFLOW_ADMIN_USERNAME', 'admin')) ?: 'admin';
+        $email = trim((string) env('GEOFLOW_ADMIN_EMAIL', 'admin@example.com')) ?: 'admin@example.com';
         $exists = Admin::query()->where('username', $username)->exists();
 
         if ($exists) {
@@ -28,7 +25,7 @@ class AdminUserSeeder extends Seeder
             return;
         }
 
-        $password = (string) config('geoflow.initial_admin_password', '');
+        $password = (string) env('GEOFLOW_ADMIN_PASSWORD', '');
 
         if ($password === '') {
             if (app()->environment('production')) {

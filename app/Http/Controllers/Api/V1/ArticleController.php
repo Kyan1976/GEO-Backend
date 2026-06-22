@@ -133,4 +133,17 @@ class ArticleController extends BaseApiController
 
         return $this->success($request, $articles->trashArticle($article), 200, 'POST /articles/{id}/trash');
     }
+
+    /**
+     * 撤回已发布文章（改回草稿）。幂等键：POST /articles/{id}/unpublish。
+     */
+    public function unpublish(Request $request, int $article, ArticleGeoFlowService $articles): JsonResponse
+    {
+        $cached = IdempotencyService::maybeReplayJson($request, "POST /articles/{id}/unpublish");
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        return $this->success($request, $articles->unpublishArticle($article), 200, "POST /articles/{id}/unpublish");
+    }
 }

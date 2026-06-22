@@ -16,7 +16,7 @@
     $changelogLinks = is_array($updateLinks['changelog'] ?? null) ? $updateLinks['changelog'] : [];
     $notificationChangelogUrl = (string) ($changelogLinks[$localeForChangelog] ?? $changelogLinks['zh-CN'] ?? 'https://github.com/yaojingang/GEOFlow/blob/main/docs/CHANGELOG.md');
     $notificationGithubUrl = (string) ($updateLinks['github'] ?? 'https://github.com/yaojingang/GEOFlow');
-    $notificationUpdateCenterUrl = $isUpdateCenterEnabled && $isSuperAdmin ? \App\Support\AdminWeb::routePath('admin.system-updates.index') : '';
+    $notificationUpdateCenterUrl = $isUpdateCenterEnabled && $isSuperAdmin ? route('admin.system-updates.index', [], false) : '';
     $notificationStatus = (string) ($updateState['status'] ?? 'disabled');
     $menu = [
         'dashboard' => ['route' => 'admin.dashboard', 'name' => __('admin.nav.dashboard')],
@@ -188,20 +188,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="hidden md:flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 shadow-sm">
-                    <i data-lucide="languages" class="w-4 h-4 text-gray-400 mr-1.5"></i>
-                    <select
-                        class="admin-locale-select appearance-none bg-transparent pr-5 text-sm font-medium text-gray-700 outline-none cursor-pointer"
-                        aria-label="{{ __('admin.header.language') }}"
-                        onchange="if (this.value) window.location.href = this.value"
-                    >
-                        @foreach (\App\Support\AdminWeb::supportedLocales() as $localeCode => $localeLabel)
-                            <option value="{{ route('admin.locale.switch', ['locale' => $localeCode]) }}" @selected(app()->getLocale() === $localeCode)>
-                                {{ $localeLabel }}
-                            </option>
-                        @endforeach
-                    </select>
                 </div>
                 <div class="relative">
                     <button onclick="toggleUserMenu()" class="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900 transition-colors duration-200" type="button">

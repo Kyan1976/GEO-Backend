@@ -13,7 +13,6 @@ use App\Http\Controllers\Admin\AiPromptController;
 use App\Http\Controllers\Admin\AiSpecialPromptController;
 use App\Http\Controllers\Admin\AnalyticsController;
 use App\Http\Controllers\Admin\ApiTokenController;
-use App\Http\Controllers\Admin\ArticleEditorAssetController;
 use App\Http\Controllers\Admin\ArticleController;
 use App\Http\Controllers\Admin\AuthorController;
 use App\Http\Controllers\Admin\CategoryController;
@@ -26,7 +25,6 @@ use App\Http\Controllers\Admin\LegacyController;
 use App\Http\Controllers\Admin\MaterialsController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
 use App\Http\Controllers\Admin\SiteSettingsController;
-use App\Http\Controllers\Admin\SiteThemeReplicationController;
 use App\Http\Controllers\Admin\SystemUpdateController;
 use App\Http\Controllers\Admin\TaskController;
 use App\Http\Controllers\Admin\TitleLibraryController;
@@ -47,6 +45,12 @@ Route::middleware(['site.locale', 'site.view_log'])->group(function (): void {
     Route::get('/category/{slug}', [SiteCategoryController::class, 'show'])->name('site.category');
     Route::get('/article/{slug}', [SiteArticleController::class, 'show'])->name('site.article');
 });
+
+// SEO routes
+use App\Http\Controllers\Site\SeoController;
+Route::get('robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('llms.txt', [SeoController::class, 'llmsTxt'])->name('seo.llms');
 
 $adminPrefix = trim((string) config('geoflow.admin_base_path', '/geo_admin'), '/');
 
@@ -136,13 +140,11 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::post('batch/restore', [ArticleController::class, 'batchRestore'])->name('batch.restore');
             Route::post('batch/force-delete', [ArticleController::class, 'batchForceDelete'])->name('batch.force-delete');
             Route::post('trash/empty', [ArticleController::class, 'emptyTrash'])->name('trash.empty');
-            Route::post('editor/wechat-html', [ArticleEditorAssetController::class, 'exportWeChatHtml'])->name('editor.wechat-html');
             Route::get('create', [ArticleController::class, 'create'])->name('create');
             Route::post('create', [ArticleController::class, 'store'])->name('store');
             Route::post('{articleId}/restore', [ArticleController::class, 'restore'])->name('restore')->whereNumber('articleId');
             Route::post('{articleId}/force-delete', [ArticleController::class, 'forceDelete'])->name('force-delete')->whereNumber('articleId');
             Route::get('{articleId}/edit', [ArticleController::class, 'edit'])->name('edit');
-            Route::post('{articleId}/editor/images/upload', [ArticleEditorAssetController::class, 'uploadImage'])->name('editor.images.upload')->whereNumber('articleId');
             Route::put('{articleId}', [ArticleController::class, 'update'])->name('update');
         });
 
@@ -269,45 +271,7 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::get('/', [SiteSettingsController::class, 'index'])->name('index');
             Route::post('/', [SiteSettingsController::class, 'update'])->name('update');
             Route::post('theme', [SiteSettingsController::class, 'updateTheme'])->name('theme');
-            Route::get('theme-replications/create', [SiteThemeReplicationController::class, 'create'])->name('theme-replications.create');
-            Route::post('theme-replications', [SiteThemeReplicationController::class, 'store'])->name('theme-replications.store');
-            Route::get('theme-replications/{replicationId}', [SiteThemeReplicationController::class, 'show'])
-                ->name('theme-replications.show')
-                ->whereNumber('replicationId');
-            Route::get('theme-replications/{replicationId}/status', [SiteThemeReplicationController::class, 'status'])
-                ->name('theme-replications.status')
-                ->whereNumber('replicationId');
-            Route::get('theme-replications/{replicationId}/preview/{page}', [SiteThemeReplicationController::class, 'preview'])
-                ->name('theme-replications.preview')
-                ->whereNumber('replicationId')
-                ->whereIn('page', ['home', 'category', 'article']);
-            Route::get('theme-replications/{replicationId}/assets/{assetPath}', [SiteThemeReplicationController::class, 'asset'])
-                ->name('theme-replications.assets')
-                ->whereNumber('replicationId')
-                ->where('assetPath', '.*');
-            Route::post('theme-replications/{replicationId}/retry', [SiteThemeReplicationController::class, 'retry'])
-                ->name('theme-replications.retry')
-                ->whereNumber('replicationId');
-            Route::post('theme-replications/{replicationId}/iterate', [SiteThemeReplicationController::class, 'iterate'])
-                ->name('theme-replications.iterate')
-                ->whereNumber('replicationId');
-            Route::post('theme-replications/{replicationId}/publish', [SiteThemeReplicationController::class, 'publish'])
-                ->name('theme-replications.publish')
-                ->whereNumber('replicationId');
-            Route::post('theme-replications/{replicationId}/copy', [SiteThemeReplicationController::class, 'copy'])
-                ->name('theme-replications.copy')
-                ->whereNumber('replicationId');
-            Route::post('theme-replications/{replicationId}/archive', [SiteThemeReplicationController::class, 'archive'])
-                ->name('theme-replications.archive')
-                ->whereNumber('replicationId');
-            Route::post('theme-replications/{replicationId}/drafts/delete', [SiteThemeReplicationController::class, 'deleteDrafts'])
-                ->name('theme-replications.delete-drafts')
-                ->whereNumber('replicationId');
-            Route::get('theme-replications/{replicationId}/package', [SiteThemeReplicationController::class, 'downloadPackage'])
-                ->name('theme-replications.package')
-                ->whereNumber('replicationId');
             Route::post('article-detail-ads', [SiteSettingsController::class, 'updateArticleDetailAds'])->name('ads');
-            Route::post('article-detail-text-ads', [SiteSettingsController::class, 'updateArticleDetailTextAds'])->name('text-ads');
             Route::get('sensitive-words', [SecuritySettingsController::class, 'index'])->name('sensitive-words');
             Route::post('sensitive-words', [SecuritySettingsController::class, 'storeSensitiveWords'])->name('sensitive-words.store');
             Route::post('sensitive-words/{wordId}/delete', [SecuritySettingsController::class, 'destroySensitiveWord'])
@@ -320,6 +284,38 @@ Route::prefix($adminPrefix)->name('admin.')->middleware(['admin.locale'])->group
             Route::post('sensitive-words/{wordId}/delete', [SecuritySettingsController::class, 'destroySensitiveWord'])->name('words.delete');
             Route::post('password', [SecuritySettingsController::class, 'updatePassword'])->name('password.update');
         });
+
+
+        // 文章平台格式化（半自动分发用）
+        Route::get('articles/{articleId}/format-for/{platform}', function ($articleId, $platform) {
+            $article = DB::table('articles')->where('id', $articleId)->first();
+            if (!$article) {
+                return response()->json(['error' => '文章不存在'], 404);
+            }
+            $payload = [
+                'article' => [
+                    'title' => $article->title,
+                    'content_html' => $article->content ?? '',
+                    'content_text' => strip_tags($article->content ?? ''),
+                    'excerpt' => $article->excerpt ?? '',
+                    'keywords' => $article->keywords ?? '',
+                    'meta_description' => $article->meta_description ?? '',
+                ],
+            ];
+            $distribution = new \App\Models\ArticleDistribution(['article_id' => $articleId]);
+            $publisher = match ($platform) {
+                'xiaohongshu' => new \App\Services\GeoFlow\XiaohongshuPublisher(),
+                'zhihu' => new \App\Services\GeoFlow\ZhihuPublisher(),
+                'baidu_baike' => new \App\Services\GeoFlow\BaiduBaikePublisher(),
+                default => null,
+            };
+            if (!$publisher) {
+                return response()->json(['error' => '不支持的平台：'.$platform], 400);
+            }
+            $result = $publisher->publish($distribution, $payload);
+            return response()->json($result['remote_meta'] ?? []);
+        })->name('articles.format-for');
+
 
         // 超级管理员功能
         Route::middleware('admin.super')->group(function () {

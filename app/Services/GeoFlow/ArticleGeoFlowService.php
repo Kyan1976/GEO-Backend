@@ -21,6 +21,11 @@ class ArticleGeoFlowService
 
         $query = Article::query();
 
+        // Include soft-deleted records when filtering for trashed status
+        if (($filters['status'] ?? '') === 'trashed') {
+            $query = Article::withTrashed();
+        }
+
         foreach (['task_id', 'status', 'review_status', 'author_id'] as $key) {
             if (! empty($filters[$key])) {
                 $query->where($key, $filters[$key]);
@@ -201,6 +206,12 @@ class ArticleGeoFlowService
     public function publishArticle(int $articleId): array
     {
         $article = $this->getArticleRecord($articleId);
+
+        // Idempotent: already published → just return current state
+        if (($article['status'] ?? '') === 'published') {
+            return $this->getArticle($articleId);
+        }
+
         $reviewStatus = $article['review_status'] ?? 'pending';
         if (! in_array($reviewStatus, ['approved', 'auto_approved'], true)) {
             throw new ApiException('article_not_publishable', '当前文章状态不允许直接发布', 409);
@@ -229,6 +240,9 @@ class ArticleGeoFlowService
             throw new ApiException('article_not_found', '文章不存在', 404);
         }
 
+        // Set status to 'trashed' before soft delete so listArticles can filter
+        $article->status = 'trashed';
+        $article->save();
         $article->delete();
 
         return [
@@ -427,5 +441,24 @@ class ArticleGeoFlowService
         }
 
         return in_array(strtolower(trim((string) $value)), ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
+    }
+
+
+
+    public function unpublishArticle(int $articleId): array
+    {
+        $article = $this->getArticleRecord($articleId);
+        if (($article['status'] ?? '') !== 'published') {
+            throw new ApiException('article_not_unpublishable', '只有已发布文章可以撤回', 409);
+        }
+
+        Article::query()->whereKey($articleId)->update([
+            'status' => 'draft',
+            'review_status' => 'pending',
+            'published_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        return $this->getArticle($articleId);
     }
 }

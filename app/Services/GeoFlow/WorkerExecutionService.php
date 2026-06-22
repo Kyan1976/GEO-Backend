@@ -19,9 +19,6 @@ use App\Support\GeoFlow\ArticleWorkflow;
 use App\Support\GeoFlow\ImageUrlNormalizer;
 use App\Support\GeoFlow\OpenAiRuntimeProvider;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
-use Laravel\Ai\Responses\Data\FinishReason;
 use RuntimeException;
 use Throwable;
 
@@ -624,114 +621,40 @@ class WorkerExecutionService
      */
     private function resolveKnowledgeContext(Task $task, string $title, string $keyword): string
     {
-        $knowledgeBaseIds = $this->resolveTaskKnowledgeBaseIds($task);
-        if ($knowledgeBaseIds === []) {
+        $knowledgeBaseId = (int) ($task->knowledge_base_id ?? 0);
+        if ($knowledgeBaseId <= 0) {
             return '';
         }
 
-        $knowledgeBases = KnowledgeBase::query()
-            ->whereIn('id', $knowledgeBaseIds)
-            ->get(['id', 'content'])
-            ->keyBy('id');
-        if ($knowledgeBases->isEmpty()) {
+        $knowledgeBase = KnowledgeBase::query()
+            ->whereKey($knowledgeBaseId)
+            ->first(['id', 'content']);
+        if (! $knowledgeBase) {
             return '';
         }
 
-        $fallbackContents = [];
-        foreach ($knowledgeBaseIds as $knowledgeBaseId) {
-            /** @var KnowledgeBase|null $knowledgeBase */
-            $knowledgeBase = $knowledgeBases->get($knowledgeBaseId);
-            if (! $knowledgeBase) {
-                continue;
-            }
-
-            $content = trim((string) ($knowledgeBase->content ?? ''));
-            if ($content === '') {
-                continue;
-            }
-
-            $fallbackContents[$knowledgeBaseId] = $content;
-            $chunkCount = KnowledgeChunk::query()->where('knowledge_base_id', $knowledgeBaseId)->count();
-            if ($chunkCount <= 0) {
-                $this->knowledgeChunkSyncService->sync($knowledgeBaseId, $content);
-            }
+        $content = trim((string) ($knowledgeBase->content ?? ''));
+        if ($content === '') {
+            return '';
         }
 
-        if ($fallbackContents === []) {
-            return '';
+        $chunkCount = KnowledgeChunk::query()->where('knowledge_base_id', $knowledgeBaseId)->count();
+        if ($chunkCount <= 0) {
+            $this->knowledgeChunkSyncService->sync($knowledgeBaseId, $content);
         }
 
         $query = trim($title."\n".$keyword);
-        $context = $this->knowledgeRetrievalService->retrieveContextFromMany($knowledgeBaseIds, $query, 5, 3200);
+        $context = $this->knowledgeRetrievalService->retrieveContext($knowledgeBaseId, $query, 5, 3200);
         if ($context !== '') {
             return $context;
         }
 
-        $chunkCount = KnowledgeChunk::query()->whereIn('knowledge_base_id', $knowledgeBaseIds)->count();
+        $chunkCount = KnowledgeChunk::query()->where('knowledge_base_id', $knowledgeBaseId)->count();
         if ($chunkCount > 0) {
             return '';
         }
 
-        return $this->fallbackKnowledgeContext($fallbackContents, 2400);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function resolveTaskKnowledgeBaseIds(Task $task): array
-    {
-        $taskId = (int) ($task->id ?? 0);
-        if ($taskId > 0 && Schema::hasTable('task_knowledge_bases')) {
-            $ids = DB::table('task_knowledge_bases')
-                ->where('task_id', $taskId)
-                ->orderBy('sort_order')
-                ->orderBy('knowledge_base_id')
-                ->pluck('knowledge_base_id')
-                ->map(static fn ($id): int => (int) $id)
-                ->filter(static fn (int $id): bool => $id > 0)
-                ->unique()
-                ->take(5)
-                ->values()
-                ->all();
-
-            if ($ids !== []) {
-                return $ids;
-            }
-        }
-
-        $legacyKnowledgeBaseId = (int) ($task->knowledge_base_id ?? 0);
-
-        return $legacyKnowledgeBaseId > 0 ? [$legacyKnowledgeBaseId] : [];
-    }
-
-    /**
-     * @param  array<int,string>  $contents
-     */
-    private function fallbackKnowledgeContext(array $contents, int $maxChars): string
-    {
-        $parts = [];
-        $charCount = 0;
-
-        foreach ($contents as $knowledgeBaseId => $content) {
-            $content = trim($content);
-            if ($content === '') {
-                continue;
-            }
-
-            $header = '【知识库 '.$knowledgeBaseId.'】';
-            $remaining = max(0, $maxChars - $charCount - mb_strlen($header, 'UTF-8') - 2);
-            if ($remaining <= 0) {
-                break;
-            }
-
-            $snippet = mb_strlen($content, 'UTF-8') > $remaining
-                ? mb_substr($content, 0, $remaining, 'UTF-8')
-                : $content;
-            $parts[] = $header."\n".$snippet;
-            $charCount += mb_strlen($header."\n".$snippet, 'UTF-8');
-        }
-
-        return $parts === [] ? '' : implode("\n\n", $parts);
+        return mb_strlen($content, 'UTF-8') > 2400 ? mb_substr($content, 0, 2400, 'UTF-8') : $content;
     }
 
     /**
@@ -914,7 +837,7 @@ class WorkerExecutionService
 
         $driver = OpenAiRuntimeProvider::resolveChatDriver($providerUrl, (string) ($aiModel->model_id ?? ''));
         $providerName = OpenAiRuntimeProvider::registerProvider('worker', $driver, $providerUrl, $apiKey);
-        $agent = new MarkdownContentWriterAgent(maxTokens: $this->resolveMaxTokens($aiModel));
+        $agent = new MarkdownContentWriterAgent;
 
         try {
             $response = $agent->prompt($contentPrompt, [], $providerName, (string) ($aiModel->model_id ?? ''));
@@ -932,8 +855,6 @@ class WorkerExecutionService
             throw new RuntimeException('AI返回空正文');
         }
 
-        $this->warnIfContentLooksTruncated($content, $aiModel, $response);
-
         AiModel::query()->whereKey((int) $aiModel->id)->update([
             'used_today' => DB::raw('COALESCE(used_today,0)+1'),
             'total_used' => DB::raw('COALESCE(total_used,0)+1'),
@@ -941,68 +862,6 @@ class WorkerExecutionService
         ]);
 
         return $content;
-    }
-
-    /**
-     * 解析模型的最大输出 token 数：优先用模型自身配置，未配置时回退全局默认值。
-     */
-    private function resolveMaxTokens(AiModel $aiModel): int
-    {
-        $configured = (int) ($aiModel->max_tokens ?? 0);
-        if ($configured > 0) {
-            return $configured;
-        }
-
-        return max(256, (int) config('geoflow.content_max_tokens', 8192));
-    }
-
-    /**
-     * 检测生成正文是否疑似被模型截断（输出 token 用尽）。
-     *
-     * 仅记录告警便于排查，不阻断流程：典型信号是未闭合的代码围栏（``` 数量为奇数），
-     * 或正文结尾未落在正常的句末标点上。命中后提示调大该模型的 max_tokens。
-     */
-    private function warnIfContentLooksTruncated(string $content, AiModel $aiModel, object $response): void
-    {
-        $trimmed = rtrim($content);
-        if ($trimmed === '') {
-            return;
-        }
-
-        $maxTokens = $this->resolveMaxTokens($aiModel);
-        $completionTokens = (int) ($response->usage->completionTokens ?? 0);
-        $nearTokenLimit = $completionTokens > 0 && $completionTokens >= (int) floor($maxTokens * 0.92);
-        $lengthFinishReason = collect($response->steps ?? [])->contains(function (mixed $step): bool {
-            $finishReason = is_object($step) ? ($step->finishReason ?? null) : null;
-
-            return $finishReason === FinishReason::Length
-                || (is_string($finishReason) && $finishReason === FinishReason::Length->value)
-                || (is_object($finishReason) && property_exists($finishReason, 'value') && $finishReason->value === FinishReason::Length->value);
-        });
-
-        $fenceCount = substr_count($trimmed, '```');
-        $unclosedFence = ($fenceCount % 2) === 1;
-
-        $lastChar = mb_substr($trimmed, -1);
-        $allowedEndings = ['。', '！', '？', '.', '!', '?', '”', '"', '）', ')', '》', '`', '】', ']', '…', ':', '：', ';', '；', '-', '—'];
-        $hasAbruptTrailingText = $nearTokenLimit
-            && ! in_array($lastChar, $allowedEndings, true)
-            && preg_match('/[\p{L}\p{N}]$/u', $trimmed) === 1;
-
-        if (! $lengthFinishReason && ! $unclosedFence && ! $hasAbruptTrailingText) {
-            return;
-        }
-
-        Log::warning('GeoFlow 正文疑似被截断，建议调大该模型的 max_tokens', [
-            'ai_model_id' => (int) $aiModel->id,
-            'model_id' => (string) ($aiModel->model_id ?? ''),
-            'max_tokens' => $maxTokens,
-            'completion_tokens' => $completionTokens,
-            'content_length' => mb_strlen($trimmed),
-            'finish_reason_length' => $lengthFinishReason,
-            'unclosed_code_fence' => $unclosedFence,
-            'has_abrupt_trailing_text' => $hasAbruptTrailingText,
-        ]);
     }
 
     /**
